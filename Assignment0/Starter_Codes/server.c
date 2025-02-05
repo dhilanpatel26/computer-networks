@@ -21,6 +21,7 @@ int server(char *server_port) {
   int status;
   struct addrinfo hints;
   struct addrinfo *servinfo;
+  
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
@@ -55,6 +56,25 @@ int server(char *server_port) {
     perror("connect error: ");
     exit(1);
   }
+
+  const int BACKLOG = 10;
+  if (listen(sockfd, BACKLOG) < 0) {
+    perror("listen error: ");
+    exit(1);
+  }
+
+  while (1) {
+    struct sockaddr_storage client_addr;
+    socklen_t addr_size = sizeof client_addr;
+    int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
+    if (clientfd < 0) {
+      perror("accept error: ");
+      continue;
+    }
+    // send and recv logic
+  }
+
+
 
 
 

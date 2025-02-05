@@ -29,8 +29,36 @@ int server(char *server_port) {
   if ((status = getaddrinfo("127.0.0.1", server_port, &hints, &servinfo)) != 0) {
     printf("error\n");
   }
+
+  // servinfo is a linked list of addrinfo structs.
+  // TODO: walk the linked list to find a good entry (some may be bad!)
+  // see examples of what to look for
   
-  
+  int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+  if (sockfd < 0) {
+    perror("socket error: ");
+    exit(1);
+  }
+
+  int yes=1;
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
+    perror("setsockopt error: ");
+    exit(1); // bad port or actively in use
+  }
+
+  if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
+    perror("bind error: ");
+    exit(1);
+  }
+
+  if (connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
+    perror("connect error: ");
+    exit(1);
+  }
+
+
+
+  // when to close?
   freeaddrinfo(servinfo);
   //  while (1) {
   //  

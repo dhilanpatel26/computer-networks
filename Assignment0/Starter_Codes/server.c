@@ -37,42 +37,37 @@ int server(char *server_port) {
   
   int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
   if (sockfd < 0) {
-    perror("socket error: ");
+    perror("socket error");
     exit(1);
   }
 
   int yes=1;
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
-    perror("setsockopt error: ");
+    perror("setsockopt error");
     exit(1); // bad port or actively in use
   }
 
   if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
-    perror("bind error: ");
-    exit(1);
-  }
-
-  if (connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
-    perror("connect error: ");
+    perror("bind error");
     exit(1);
   }
 
   const int BACKLOG = 10;
-  if (listen(sockfd, BACKLOG) < 0) {
-    perror("listen error: ");
+  if (listen(sockfd, 10) < 0) {
+    perror("listen error");
     exit(1);
   }
 
-  while (1) {
-    struct sockaddr_storage client_addr;
-    socklen_t addr_size = sizeof client_addr;
-    int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
-    if (clientfd < 0) {
-      perror("accept error: ");
-      continue;
-    }
-    // send and recv logic
-  }
+  // while (1) {
+  //   struct sockaddr_storage client_addr;
+  //   socklen_t addr_size = sizeof client_addr;
+  //   int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
+  //   if (clientfd < 0) {
+  //     perror("accept error: ");
+  //     continue;
+  //   }
+  //   // send and recv logic
+  // }
 
 
 

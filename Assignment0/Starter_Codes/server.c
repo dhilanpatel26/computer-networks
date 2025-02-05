@@ -18,7 +18,24 @@
  * Return 0 on success, non-zero on failure
 */
 int server(char *server_port) {
-    return 0;
+  int status;
+  struct addrinfo hints;
+  struct addrinfo *servinfo;
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+
+  if ((status = getaddrinfo("127.0.0.1", server_port, &hints, &servinfo)) != 0) {
+    printf("error\n");
+  }
+  
+  
+  freeaddrinfo(servinfo);
+  //  while (1) {
+  //  
+  // }
+
 }
 
 /*

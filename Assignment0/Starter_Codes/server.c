@@ -18,7 +18,6 @@
  * Return 0 on success, non-zero on failure
 */
 int server(char *server_port) {
-  int status;
   struct addrinfo hints;
   struct addrinfo *servinfo;
   
@@ -27,7 +26,7 @@ int server(char *server_port) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  if ((status = getaddrinfo("127.0.0.1", server_port, &hints, &servinfo)) != 0) {
+  if (getaddrinfo("127.0.0.1", server_port, &hints, &servinfo) != 0) {
     printf("error\n");
   }
 
@@ -58,16 +57,20 @@ int server(char *server_port) {
     exit(1);
   }
 
-  // while (1) {
-  //   struct sockaddr_storage client_addr;
-  //   socklen_t addr_size = sizeof client_addr;
-  //   int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
-  //   if (clientfd < 0) {
-  //     perror("accept error: ");
-  //     continue;
-  //   }
-  //   // send and recv logic
-  // }
+  printf("Here!\n");
+
+  while (1) {
+    struct sockaddr_storage client_addr;
+    socklen_t addr_size = sizeof client_addr;
+    printf("about to accept!\n");
+    int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
+    if (clientfd < 0) {
+      perror("accept error");
+      continue;
+    }
+    printf("Client %d accepted!\n", clientfd);
+    // send and recv logic
+  }
 
 
 

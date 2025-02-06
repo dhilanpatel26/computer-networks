@@ -60,7 +60,7 @@ void chat_with_server(int sockfd) {
   char buffer[SEND_BUFFER_SIZE];
 
   fflush(stdin);
-  while ((bytes_read = read(STDERR_FILENO, buffer, SEND_BUFFER_SIZE)) > 0) { // reads size - 1 chars/bytes
+  while ((bytes_read = read(STDIN_FILENO, buffer, SEND_BUFFER_SIZE)) > 0) { // reads size - 1 chars/bytes
     total_bytes_sent = 0;
     while (total_bytes_sent < bytes_read) {
       bytes_sent = send(sockfd, buffer + total_bytes_sent, 

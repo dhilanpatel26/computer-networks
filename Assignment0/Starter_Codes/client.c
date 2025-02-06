@@ -66,7 +66,7 @@ void chat_with_server(int sockfd) {
     while (total_bytes_sent < len) {
       bytes_sent = send(sockfd, buffer + total_bytes_sent, len - total_bytes_sent, 0);
       total_bytes_sent += bytes_sent;
-      printf("Bytes sent: %d\n", bytes_sent);
+      // printf("Bytes sent: %d\n", bytes_sent);
     }
   }
   if (!feof(stdin)) {

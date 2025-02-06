@@ -29,7 +29,7 @@ int server(char *server_port) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  if (getaddrinfo("127.0.0.1", server_port, &hints, &servinfo) != 0) {
+  if (getaddrinfo(NULL, server_port, &hints, &servinfo) != 0) {
     printf("error\n");
   }
 

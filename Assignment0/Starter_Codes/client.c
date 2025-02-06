@@ -11,6 +11,8 @@
 
 #define SEND_BUFFER_SIZE 2048
 
+void chat_with_server(int sockfd);
+
 
 /* TODO: client()
  * Open socket and send message from stdin.
@@ -27,6 +29,7 @@ int client(char *server_ip, char *server_port) {
       exit(1);
     }
 
+    // client's socket following server protocol
     int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
     if (sockfd < 0) {
       perror("socket error");
@@ -35,18 +38,41 @@ int client(char *server_ip, char *server_port) {
 
     // no need to bind our client to a specific port
 
+    // connect our client socket to the server
     if (connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
       perror("connect error");
+      close(sockfd);
       exit(1);
     }
 
     printf("connected!\n");
 
-    while (1) {
-      
+    chat_with_server(sockfd);
+
+    close(sockfd);
+
+    return 0;
+
+}
+
+void chat_with_server(int sockfd) {
+  int len, bytes_sent, total_bytes_sent;
+  char buffer[SEND_BUFFER_SIZE];
+
+  // do we need to flush stdin before starting?
+  while (fgets(buffer, SEND_BUFFER_SIZE, stdin)) { // reads size - 1 chars/bytes
+    len = strlen(buffer);
+    total_bytes_sent = 0;
+    while (total_bytes_sent < len) {
+      bytes_sent = send(sockfd, buffer + total_bytes_sent, len, 0);
+      total_bytes_sent += bytes_sent;
+      printf("Bytes sent: %d\n", bytes_sent);
     }
-
-
+  }
+  if (!feof(stdin)) {
+    close(sockfd);
+    exit(1);
+  }
 }
 
 /*

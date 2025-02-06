@@ -12,6 +12,9 @@
 #define QUEUE_LENGTH 10
 #define RECV_BUFFER_SIZE 2048
 
+void chat_with_client(int clientfd);
+
+
 /* TODO: server()
  * Open socket and wait for client to connect
  * Print received message to stdout
@@ -34,6 +37,7 @@ int server(char *server_port) {
   // TODO: walk the linked list to find a good entry (some may be bad!)
   // see examples of what to look for
   
+  // server socket's job is to just listen for incoming connections
   int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
   if (sockfd < 0) {
     perror("socket error");
@@ -43,17 +47,21 @@ int server(char *server_port) {
   int yes=1;
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
     perror("setsockopt error");
+    close(sockfd);
     exit(1); // bad port or actively in use
   }
 
   if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
     perror("bind error");
+    close(sockfd);
     exit(1);
   }
 
-  const int BACKLOG = 10;
-  if (listen(sockfd, 10) < 0) {
+  freeaddrinfo(servinfo);
+
+  if (listen(sockfd, QUEUE_LENGTH) < 0) {
     perror("listen error");
+    close(sockfd);
     exit(1);
   }
 
@@ -63,25 +71,39 @@ int server(char *server_port) {
     struct sockaddr_storage client_addr;
     socklen_t addr_size = sizeof client_addr;
     printf("about to accept!\n");
+    // client socket on the server, used to communicate with client socket on the client
     int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
     if (clientfd < 0) {
       perror("accept error");
-      continue;
+      continue; // do not exit program
     }
     printf("Client %d accepted!\n", clientfd);
-    // send and recv logic
+    chat_with_client(clientfd);
+    printf("\n");
+    close(clientfd);
   }
 
+  close(sockfd);
 
+  return 0;
 
+}
 
-
-  // when to close?
-  freeaddrinfo(servinfo);
-  //  while (1) {
-  //  
-  // }
-
+void chat_with_client(int clientfd) {
+  char buffer[RECV_BUFFER_SIZE];
+  char bytes_read;
+  while (bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0) > 0) {
+    // printf("%d bytes read\n", bytes_read);
+    printf("first n: %.*s", bytes_read, buffer);
+    printf("first 10: %.*s", 10, buffer);
+    // buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
+    // printf("%s", buffer);
+    // fflush(stdout);
+  }
+  if (bytes_read < 0) {
+    perror("recv error");
+    // do not exit program
+  }
 }
 
 /*

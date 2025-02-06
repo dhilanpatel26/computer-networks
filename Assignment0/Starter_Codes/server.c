@@ -65,19 +65,19 @@ int server(char *server_port) {
     exit(1);
   }
 
-  printf("Here!\n");
+  // printf("Here!\n");
 
   while (1) {
     struct sockaddr_storage client_addr;
     socklen_t addr_size = sizeof client_addr;
-    printf("about to accept!\n");
+    // printf("about to accept!\n");
     // client socket on the server, used to communicate with client socket on the client
     int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
     if (clientfd < 0) {
       perror("accept error");
       continue; // do not exit program
     }
-    printf("Client %d accepted!\n", clientfd);
+    // printf("Client %d accepted!\n", clientfd);
     chat_with_client(clientfd);
     printf("\n");
     close(clientfd);

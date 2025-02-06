@@ -45,7 +45,7 @@ int client(char *server_ip, char *server_port) {
       exit(1);
     }
 
-    printf("connected!\n");
+    // printf("connected!\n");
 
     chat_with_server(sockfd);
 

@@ -93,16 +93,22 @@ int server(char *server_port) {
 
 void chat_with_client(int clientfd) {
   char buffer[RECV_BUFFER_SIZE];
-  ssize_t bytes_read;
+  ssize_t bytes_read, bytes_written;
   while ((bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0)) > 0) {
-    buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
-    printf("%s", buffer);
-    fflush(stdout); // immediate output
+    bytes_written = write(STDOUT_FILENO, buffer, bytes_read);
+    if (bytes_written < 0) {
+      perror("write error");
+      return; // do not exit program
+    }
+    // buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
+    // printf("%s", buffer);
+    // fflush(stdout); // immediate output
   }
-  if (bytes_read < 0) {
+  if (bytes_read < 0) { // exited not on eof
     perror("recv error");
-    // do not exit program
+    return; // do not exit program
   }
+  return;
 }
 
 /*

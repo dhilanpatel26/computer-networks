@@ -72,10 +72,12 @@ int server(char *server_port) {
     socklen_t addr_size = sizeof client_addr;
     // printf("about to accept!\n");
     // client socket on the server, used to communicate with client socket on the client
-    int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
-    if (clientfd < 0) {
-      perror("accept error");
-      continue; // do not exit program
+    int clientfd;
+    while ((clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size)) < 0) {
+      if (errno != EINTR) {
+        perror("accept error");
+      }
+      continue;
     }
     // printf("Client %d accepted!\n", clientfd);
     chat_with_client(clientfd);

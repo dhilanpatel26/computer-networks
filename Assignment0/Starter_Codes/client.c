@@ -59,12 +59,12 @@ void chat_with_server(int sockfd) {
   int len, bytes_sent, total_bytes_sent;
   char buffer[SEND_BUFFER_SIZE];
 
-  // do we need to flush stdin before starting?
+  fflush(stdin);
   while (fgets(buffer, SEND_BUFFER_SIZE, stdin)) { // reads size - 1 chars/bytes
     len = strlen(buffer);
     total_bytes_sent = 0;
     while (total_bytes_sent < len) {
-      bytes_sent = send(sockfd, buffer + total_bytes_sent, len, 0);
+      bytes_sent = send(sockfd, buffer + total_bytes_sent, len - total_bytes_sent, 0);
       total_bytes_sent += bytes_sent;
       printf("Bytes sent: %d\n", bytes_sent);
     }

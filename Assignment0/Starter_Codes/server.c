@@ -91,14 +91,11 @@ int server(char *server_port) {
 
 void chat_with_client(int clientfd) {
   char buffer[RECV_BUFFER_SIZE];
-  char bytes_read;
-  while (bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0) > 0) {
-    // printf("%d bytes read\n", bytes_read);
-    printf("first n: %.*s", bytes_read, buffer);
-    printf("first 10: %.*s", 10, buffer);
-    // buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
-    // printf("%s", buffer);
-    // fflush(stdout);
+  ssize_t bytes_read;
+  while ((bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0)) > 0) {
+    buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
+    printf("%s", buffer);
+    fflush(stdout); // immediate output
   }
   if (bytes_read < 0) {
     perror("recv error");

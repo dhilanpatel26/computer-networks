@@ -22,7 +22,8 @@ void chat_with_client(int clientfd);
 */
 int server(char *server_port) {
   struct addrinfo hints;
-  struct addrinfo *servinfo;
+  struct addrinfo *servinfo, *p;
+  int sockfd;
   
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
@@ -34,29 +35,37 @@ int server(char *server_port) {
     exit(1);
   }
 
-  // TODO: walk the linked list to find a good entry (some may be bad!)
-  
-  // server socket's job is to just listen for incoming connections
-  int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-  if (sockfd < 0) {
-    perror("socket error");
+  // iterate through linked list and find acceptable binding
+  for (p = servinfo; p != NULL; p = p->ai_next) {
+    // server socket's job is to just listen for incoming connections
+    sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (sockfd < 0) {
+      perror("socket error");
+      continue;
+    }
+
+    int yes=1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
+      perror("setsockopt error"); // bad port or actively in use
+      close(sockfd);
+      continue;
+    }
+
+    if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
+      perror("bind error");
+      close(sockfd);
+      continue;
+    }
+
+    break; // found a good one
+  }
+
+  freeaddrinfo(servinfo); // free head of linked list
+
+  if (p == NULL) {
+    fprintf(stderr, "Failed to bind socket\n");
     exit(1);
   }
-
-  int yes=1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
-    perror("setsockopt error");
-    close(sockfd);
-    exit(1); // bad port or actively in use
-  }
-
-  if (bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
-    perror("bind error");
-    close(sockfd);
-    exit(1);
-  }
-
-  freeaddrinfo(servinfo);
 
   if (listen(sockfd, QUEUE_LENGTH) < 0) {
     perror("listen error");
@@ -89,16 +98,19 @@ int server(char *server_port) {
 void chat_with_client(int clientfd) {
   char buffer[RECV_BUFFER_SIZE];
   ssize_t bytes_read, bytes_written;
-  while ((bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0)) > 0) {
+  while (
+    (bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0)) > 0 
+    && errno != EINTR // keep receiving on system interrupt
+    ) {
     bytes_written = write(STDOUT_FILENO, buffer, bytes_read);
-    if (bytes_written < 0) {
+    if (bytes_written < 0 && errno != EINTR) {
       perror("write error");
-      return; // do not exit program
+      return; // do not exit program but terminate client connection
     }
   }
   if (bytes_read < 0) { // exited not on eof
     perror("recv error");
-    return; // do not exit program
+    return; // do not exit program but terminate client conenction
   }
   return;
 }

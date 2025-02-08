@@ -19,7 +19,9 @@ void chat_with_server(int sockfd);
  * Return 0 on success, non-zero on failure
 */
 int client(char *server_ip, char *server_port) {
-    struct addrinfo hints, *servinfo;
+    struct addrinfo hints, *servinfo, *p;
+    int sockfd;
+
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -29,18 +31,30 @@ int client(char *server_ip, char *server_port) {
       exit(1);
     }
 
-    // client's socket following server protocol
-    int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-    if (sockfd < 0) {
-      perror("socket error");
-      exit(1);
+    // iterate through linked list and find acceptable connection
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+      // client's socket following server protocol
+      sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+      if (sockfd < 0) {
+        perror("socket error");
+        continue;
+      }
+
+      // no need to bind our client to a specific port
+      // connect our client socket to the server
+      if (connect(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
+        perror("connect error");
+        close(sockfd);
+        continue;
+      }
+
+      break; // found a good one
     }
 
-    // no need to bind our client to a specific port
-    // connect our client socket to the server
-    if (connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
-      perror("connect error");
-      close(sockfd);
+    freeaddrinfo(servinfo);
+
+    if (p == NULL) {
+      fprintf(stderr, "Failed to connect socket\n");
       exit(1);
     }
 
@@ -53,15 +67,23 @@ int client(char *server_ip, char *server_port) {
 }
 
 void chat_with_server(int sockfd) {
-  size_t bytes_read, bytes_sent, total_bytes_sent;
+  ssize_t bytes_read, bytes_sent, total_bytes_sent;
   char buffer[SEND_BUFFER_SIZE];
 
-  while ((bytes_read = read(STDIN_FILENO, buffer, SEND_BUFFER_SIZE)) > 0) { // reads size - 1 chars/bytes
+  while (
+    (bytes_read = read(STDIN_FILENO, buffer, SEND_BUFFER_SIZE)) > 0 
+    && errno != EINTR // keep reading on system interrupt
+    ) { // reads size - 1 chars/bytes
     total_bytes_sent = 0;
     while (total_bytes_sent < bytes_read) {
       bytes_sent = send(sockfd, buffer + total_bytes_sent, 
                       bytes_read - total_bytes_sent, 0);
       total_bytes_sent += bytes_sent;
+      if (bytes_sent < 0 && errno != EINTR) {
+        perror("send error");
+        close(sockfd);
+        exit(1); // exit client on unrecoverable error
+      }
     }
   }
   if (bytes_read < 0) { // did not reach eof

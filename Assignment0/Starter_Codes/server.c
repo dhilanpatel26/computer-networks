@@ -15,7 +15,7 @@
 void chat_with_client(int clientfd);
 
 
-/* TODO: server()
+/* 
  * Open socket and wait for client to connect
  * Print received message to stdout
  * Return 0 on success, non-zero on failure
@@ -30,12 +30,11 @@ int server(char *server_port) {
   hints.ai_flags = AI_PASSIVE;
 
   if (getaddrinfo(NULL, server_port, &hints, &servinfo) != 0) {
-    printf("error\n");
+    perror("getaddrinfo error");
+    exit(1);
   }
 
-  // servinfo is a linked list of addrinfo structs.
   // TODO: walk the linked list to find a good entry (some may be bad!)
-  // see examples of what to look for
   
   // server socket's job is to just listen for incoming connections
   int sockfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
@@ -65,12 +64,9 @@ int server(char *server_port) {
     exit(1);
   }
 
-  // printf("Here!\n");
-
   while (1) {
     struct sockaddr_storage client_addr;
     socklen_t addr_size = sizeof client_addr;
-    // printf("about to accept!\n");
     // client socket on the server, used to communicate with client socket on the client
     int clientfd;
     while ((clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size)) < 0) {
@@ -79,7 +75,6 @@ int server(char *server_port) {
       }
       continue;
     }
-    // printf("Client %d accepted!\n", clientfd);
     chat_with_client(clientfd);
     printf("\n");
     close(clientfd);
@@ -100,9 +95,6 @@ void chat_with_client(int clientfd) {
       perror("write error");
       return; // do not exit program
     }
-    // buffer[bytes_read] = '\0'; // in-range because client sent omitting \0
-    // printf("%s", buffer);
-    // fflush(stdout); // immediate output
   }
   if (bytes_read < 0) { // exited not on eof
     perror("recv error");

@@ -14,7 +14,7 @@
 void chat_with_server(int sockfd);
 
 
-/* TODO: client()
+/* 
  * Open socket and send message from stdin.
  * Return 0 on success, non-zero on failure
 */
@@ -37,15 +37,12 @@ int client(char *server_ip, char *server_port) {
     }
 
     // no need to bind our client to a specific port
-
     // connect our client socket to the server
     if (connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen) < 0) {
       perror("connect error");
       close(sockfd);
       exit(1);
     }
-
-    // printf("connected!\n");
 
     chat_with_server(sockfd);
 
@@ -59,14 +56,12 @@ void chat_with_server(int sockfd) {
   size_t bytes_read, bytes_sent, total_bytes_sent;
   char buffer[SEND_BUFFER_SIZE];
 
-  fflush(stdin);
   while ((bytes_read = read(STDIN_FILENO, buffer, SEND_BUFFER_SIZE)) > 0) { // reads size - 1 chars/bytes
     total_bytes_sent = 0;
     while (total_bytes_sent < bytes_read) {
       bytes_sent = send(sockfd, buffer + total_bytes_sent, 
                       bytes_read - total_bytes_sent, 0);
       total_bytes_sent += bytes_sent;
-      // printf("Bytes sent: %d\n", bytes_sent);
     }
   }
   if (bytes_read < 0) { // did not reach eof

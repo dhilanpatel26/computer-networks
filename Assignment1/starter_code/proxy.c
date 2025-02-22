@@ -15,30 +15,13 @@
 #define RECV_BUFFER_SIZE 2048
 
 void chat_with_client(int clientfd);
+int find_binding(struct addrinfo *servinfo);
+int proxy_server_setup(char *proxy_port);
 
-/* TODO: proxy()
- * Establish a socket connection to listen for incoming connections.
- * Accept each client request in a new process.
- * Parse header of request and get requested URL.
- * Get data from requested remote server.
- * Send data to the client
- * Return 0 on success, non-zero on failure
-*/
-int proxy(char *proxy_port) {
-  struct addrinfo hints;
-  struct addrinfo *servinfo, *p;
+
+int find_binding(struct addrinfo *servinfo) {
+  struct addrinfo *p;
   int sockfd;
-  
-  memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_PASSIVE;
-
-  if (getaddrinfo(NULL, proxy_port, &hints, &servinfo) != 0) {
-    perror("getaddrinfo error");
-    exit(1);
-  }
-
   // iterate through linked list and find acceptable binding
   for (p = servinfo; p != NULL; p = p->ai_next) {
     // server socket's job is to just listen for incoming connections
@@ -64,18 +47,52 @@ int proxy(char *proxy_port) {
     break; // found a good one
   }
 
-  freeaddrinfo(servinfo); // free head of linked list
-
   if (p == NULL) {
     fprintf(stderr, "Failed to bind socket\n");
     exit(1);
   }
+
+  return sockfd;
+}
+
+int proxy_server_setup(char *proxy_port) {
+  struct addrinfo hints;
+  struct addrinfo *servinfo;
+  int sockfd;
+  
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+
+  if (getaddrinfo(NULL, proxy_port, &hints, &servinfo) != 0) {
+    perror("getaddrinfo error");
+    exit(1);
+  }
+
+  sockfd = find_binding(servinfo);
+
+  freeaddrinfo(servinfo); // free head of linked list
 
   if (listen(sockfd, QUEUE_LENGTH) < 0) {
     perror("listen error");
     close(sockfd);
     exit(1);
   }
+
+  return sockfd;
+}
+
+/* TODO: proxy()
+ * Establish a socket connection to listen for incoming connections.
+ * Accept each client request in a new process.
+ * Parse header of request and get requested URL.
+ * Get data from requested remote server.
+ * Send data to the client
+ * Return 0 on success, non-zero on failure
+*/
+int proxy(char *proxy_port) {
+  int sockfd = proxy_server_setup(proxy_port);
 
   while (1) {
     struct sockaddr_storage client_addr;

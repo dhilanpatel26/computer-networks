@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -10,6 +9,7 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <netinet/tcp.h>
+#include <sys/wait.h>
 
 #define QUEUE_LENGTH 10
 #define RECV_BUFFER_SIZE 2048
@@ -83,6 +83,16 @@ int proxy_server_setup(char *proxy_port) {
   return sockfd;
 }
 
+void sigchld_handler(int s)
+{
+    // waitpid() might overwrite errno, so we save and restore it:
+    int saved_errno = errno;
+
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+
+    errno = saved_errno;
+}
+
 /* TODO: proxy()
  * Establish a socket connection to listen for incoming connections.
  * Accept each client request in a new process.
@@ -93,6 +103,15 @@ int proxy_server_setup(char *proxy_port) {
 */
 int proxy(char *proxy_port) {
   int sockfd = proxy_server_setup(proxy_port);
+  struct sigaction sa;
+
+  sa.sa_handler = sigchld_handler; // reap all dead processes
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART;
+  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+      perror("sigaction");
+      exit(1);
+  }
 
   while (1) {
     struct sockaddr_storage client_addr;
@@ -105,11 +124,23 @@ int proxy(char *proxy_port) {
       }
       continue;
     }
-    chat_with_client(clientfd);
-    printf("\n");
-    close(clientfd);
+    pid_t pid = fork();
+    if (pid < 0) {
+      perror("fork error");
+      close(clientfd);
+      continue;
+    } else if (pid == 0) { // child process
+      close(sockfd); // child doesn't need listener socket
+      chat_with_client(clientfd);
+      close(clientfd);
+      exit(0);
+    } else { // parent process
+      close(clientfd); // parent doesn't need client socket
+    }
+
   }
 
+  // parent process
   close(sockfd);
 
   return 0;

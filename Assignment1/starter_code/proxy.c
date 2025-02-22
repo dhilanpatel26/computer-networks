@@ -148,18 +148,23 @@ int proxy(char *proxy_port) {
 }
 
 void chat_with_client(int clientfd) {
-  char buffer[RECV_BUFFER_SIZE];
-  ssize_t bytes_read, bytes_written;
+  char buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
+  ssize_t bytes_read, bytes_written, total_bytes_read;
+  total_bytes_read = 0;
   while (
-    (bytes_read = recv(clientfd, buffer, RECV_BUFFER_SIZE, 0)) > 0 
-    && errno != EINTR // keep receiving on system interrupt
+    (bytes_read = recv(clientfd, buffer + total_bytes_read, 
+      RECV_BUFFER_SIZE - total_bytes_read, 0)) > 0 || 
+    (bytes_read == -1 && errno == EINTR) // keep receiving on system interrupt
     ) {
-    bytes_written = write(STDOUT_FILENO, buffer, bytes_read);
+    bytes_written = write(STDOUT_FILENO, buffer + total_bytes_read, bytes_read);
     if (bytes_written < 0 && errno != EINTR) {
       perror("write error");
       return; // do not exit program but terminate client connection
     }
+    total_bytes_read += bytes_read;
   }
+  write(STDOUT_FILENO, "TOTAL\n", 6);
+  write(STDOUT_FILENO, buffer, total_bytes_read);
   if (bytes_read < 0) { // exited not on eof
     perror("recv error");
     return; // do not exit program but terminate client conenction

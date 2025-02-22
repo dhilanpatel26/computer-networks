@@ -17,6 +17,7 @@
 int chat_with_client(int clientfd);
 int find_binding(struct addrinfo *servinfo);
 int proxy_server_setup(char *proxy_port);
+int receive_from_client(int clientfd, char *buffer, int buffer_size);
 
 
 int find_binding(struct addrinfo *servinfo) {
@@ -147,32 +148,9 @@ int proxy(char *proxy_port) {
 
 }
 
-int chat_with_client(int clientfd) {
-  char buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
-  ssize_t bytes_read, bytes_written, total_bytes_read;
-  total_bytes_read = 0;
-  while (
-    (bytes_read = recv(clientfd, buffer + total_bytes_read, 
-      RECV_BUFFER_SIZE - total_bytes_read, 0)) > 0 || 
-    (bytes_read == -1 && errno == EINTR) // keep receiving on system interrupt
-    ) {
-    bytes_written = write(STDOUT_FILENO, buffer + total_bytes_read, bytes_read);
-    if (bytes_written < 0 && errno != EINTR) {
-      perror("write error");
-      return -1; // do not exit program but terminate client connection
-    }
-    total_bytes_read += bytes_read;
-  }
-  if (bytes_read < 0) { // exited not on eof
-    perror("recv error");
-    return -1; // do not exit program but terminate client conenction
-  }
-
-  write(STDOUT_FILENO, "TOTAL\n", 6);
-  write(STDOUT_FILENO, buffer, total_bytes_read);
-
+int parse_request(char *buffer, int buffer_size) {
   struct ParsedRequest *req = ParsedRequest_create();
-  if (ParsedRequest_parse(req, buffer, total_bytes_read) < 0) {
+  if (ParsedRequest_parse(req, buffer, buffer_size) < 0) {
     printf("parse failed\n");
     return -1;
   }
@@ -193,6 +171,46 @@ int chat_with_client(int clientfd) {
 
   ParsedRequest_destroy(req);
   free(b);
+
+  return 0;
+}
+
+int receive_from_client(int clientfd, char *buffer, int buffer_size) {
+  ssize_t bytes_read, total_bytes_read;
+  // ssize_t bytes_read, bytes_written, total_bytes_read;
+  total_bytes_read = 0;
+  while (
+    (bytes_read = recv(clientfd, buffer + total_bytes_read, 
+      RECV_BUFFER_SIZE - total_bytes_read, 0)) > 0 || 
+    (bytes_read == -1 && errno == EINTR) // keep receiving on system interrupt
+    ) {
+    // bytes_written = write(STDOUT_FILENO, buffer + total_bytes_read, bytes_read);
+    // if (bytes_written < 0 && errno != EINTR) {
+    //   perror("write error");
+    //   return -1; // do not exit program but terminate client connection
+    // }
+    total_bytes_read += bytes_read;
+  }
+  if (bytes_read < 0) { // exited not on eof
+    perror("recv error");
+    return -1; // do not exit program but terminate client conenction
+  }
+  return total_bytes_read;
+}
+
+int chat_with_client(int clientfd) {
+  char buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
+  ssize_t total_bytes_read = receive_from_client(clientfd, buffer, RECV_BUFFER_SIZE);
+  if (total_bytes_read < 0) {
+    return -1;
+  }
+
+  // write(STDOUT_FILENO, "TOTAL\n", 6);
+  // write(STDOUT_FILENO, buffer, total_bytes_read);
+
+  if (parse_request(buffer, total_bytes_read) < 0) {
+    return -1;
+  };
 
 
   return 0;

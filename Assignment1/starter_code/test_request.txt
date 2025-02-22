@@ -1,0 +1,1 @@
+printf "GET http://www.example.com/index.html HTTP/1.1\r\nHost: www.example.com\r\nUser-Agent: Mozilla/5.0\r\nAccept: text/html\r\nIf-Modified-Since: Sat, 29 Oct 1994 19:43:31 GMT\r\nConnection: close\r\n\r\n" | nc localhost 10000

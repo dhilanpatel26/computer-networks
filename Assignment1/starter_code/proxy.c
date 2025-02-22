@@ -14,7 +14,7 @@
 #define QUEUE_LENGTH 10
 #define RECV_BUFFER_SIZE 2048
 
-void chat_with_client(int clientfd);
+int chat_with_client(int clientfd);
 int find_binding(struct addrinfo *servinfo);
 int proxy_server_setup(char *proxy_port);
 
@@ -147,7 +147,7 @@ int proxy(char *proxy_port) {
 
 }
 
-void chat_with_client(int clientfd) {
+int chat_with_client(int clientfd) {
   char buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
   ssize_t bytes_read, bytes_written, total_bytes_read;
   total_bytes_read = 0;
@@ -159,17 +159,43 @@ void chat_with_client(int clientfd) {
     bytes_written = write(STDOUT_FILENO, buffer + total_bytes_read, bytes_read);
     if (bytes_written < 0 && errno != EINTR) {
       perror("write error");
-      return; // do not exit program but terminate client connection
+      return -1; // do not exit program but terminate client connection
     }
     total_bytes_read += bytes_read;
   }
-  write(STDOUT_FILENO, "TOTAL\n", 6);
-  write(STDOUT_FILENO, buffer, total_bytes_read);
   if (bytes_read < 0) { // exited not on eof
     perror("recv error");
-    return; // do not exit program but terminate client conenction
+    return -1; // do not exit program but terminate client conenction
   }
-  return;
+
+  write(STDOUT_FILENO, "TOTAL\n", 6);
+  write(STDOUT_FILENO, buffer, total_bytes_read);
+
+  struct ParsedRequest *req = ParsedRequest_create();
+  if (ParsedRequest_parse(req, buffer, total_bytes_read) < 0) {
+    printf("parse failed\n");
+    return -1;
+  }
+
+  printf("Method:%s\n", req->method);
+  printf("Host:%s\n", req->host);
+
+  int rlen = ParsedRequest_totalLen(req);
+  char *b = (char *)malloc(rlen+1);
+  if (ParsedRequest_unparse(req, b, rlen) < 0) {
+    printf("unparse failed\n");
+    return -1;
+  }
+  b[rlen]='\0';
+
+  struct ParsedHeader *r = ParsedHeader_get(req, "If-Modified-Since");
+  printf("Modified value: %s\n", r->value);
+
+  ParsedRequest_destroy(req);
+  free(b);
+
+
+  return 0;
 }
 
 

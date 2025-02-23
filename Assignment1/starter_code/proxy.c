@@ -226,18 +226,17 @@ int parse_request(char *buffer, int buffer_size, int req_len, struct ParsedReque
   if (ParsedRequest_parse(*reqp, buffer, req_len) < 0) {
     printf("parse failed\n");
     ParsedRequest_destroy(*reqp);
-    return -1;
+    return -400;
   }
 
   if (!(*reqp)->port) {
     (*reqp)->port = "80";
   }
 
-  // TODO: Format into error codes
   if (strcmp((*reqp)->method, "GET") != 0) {
     printf("method not GET\n");
     ParsedRequest_destroy(*reqp);
-    return -1;
+    return -501;
   }
 
   int len = snprintf(
@@ -315,6 +314,13 @@ int chat_with_client(int clientfd) {
 
   if (req_len < 0) {
     printf("request parse failed\n");
+    if (req_len == -400) {
+      char *err_msg = "HTTP/1.0 400 Bad Request\r\n\r\n";
+      send_to_socket(clientfd, err_msg, strlen(err_msg));
+    } else if (req_len == -501) {
+      char *err_msg = "HTTP/1.0 501 Not Implemented\r\n\r\n";
+      send_to_socket(clientfd, err_msg, strlen(err_msg));
+    }
     return -1;
   }
 

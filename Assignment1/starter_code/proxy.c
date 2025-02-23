@@ -70,7 +70,7 @@ int proxy_server_socket_setup(char *proxy_port) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  if (getaddrinfo(NULL, proxy_port, &hints, &servinfo) != 0) {
+  if (getaddrinfo("127.0.0.1", proxy_port, &hints, &servinfo) != 0) {
     printf("getaddrinfo error\n");
     return -1;
   }
@@ -208,6 +208,7 @@ int proxy(char *proxy_port) {
 
   }
 
+  printf("Parent process exiting\n");
   // parent process
   close(sockfd);
 
@@ -262,19 +263,22 @@ int parse_request(char *buffer, int buffer_size, int req_len, struct ParsedReque
 
 int receive_from_socket(int sockfd, char *buffer, int buffer_size) {
   ssize_t bytes_read, total_bytes_read;
-  // ssize_t bytes_read, bytes_written, total_bytes_read;
   total_bytes_read = 0;
   while (
     (bytes_read = recv(sockfd, buffer + total_bytes_read, 
       RECV_BUFFER_SIZE - total_bytes_read, 0)) > 0 || 
     (bytes_read == -1 && errno == EINTR) // keep receiving on system interrupt
     ) {
-    // bytes_written = write(STDOUT_FILENO, buffer + total_bytes_read, bytes_read);
-    // if (bytes_written < 0 && errno != EINTR) {
-    //   perror("write error");
-    //   return -1; // do not exit program but terminate client connection
-    // }
     total_bytes_read += bytes_read;
+    
+    if (total_bytes_read >= 4) {
+      if (buffer[total_bytes_read - 4] == '\r' && 
+          buffer[total_bytes_read - 3] == '\n' &&
+          buffer[total_bytes_read - 2] == '\r' && 
+          buffer[total_bytes_read - 1] == '\n') {
+        break;
+      }
+    }
   }
   if (bytes_read < 0) { // exited not on eof
     perror("recv error");

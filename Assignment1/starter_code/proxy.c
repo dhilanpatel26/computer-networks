@@ -15,12 +15,15 @@
 #define RECV_BUFFER_SIZE 2048
 
 int chat_with_client(int clientfd);
-int find_binding(struct addrinfo *servinfo);
-int proxy_server_setup(char *proxy_port);
-int receive_from_client(int clientfd, char *buffer, int buffer_size);
+int find_server_socket_binding(struct addrinfo *servinfo);
+int find_client_socket_binding(struct addrinfo *servinfo);
+int proxy_server_socket_setup(char *proxy_port);
+int proxy_client_socket_setup(char *server_ip, char *server_port);
+int parse_request(char *buffer, int buffer_size);
+int receive_from_socket(int sockfd, char *buffer, int buffer_size);
 
 
-int find_binding(struct addrinfo *servinfo) {
+int find_server_socket_binding(struct addrinfo *servinfo) {
   struct addrinfo *p;
   int sockfd;
   // iterate through linked list and find acceptable binding
@@ -50,13 +53,13 @@ int find_binding(struct addrinfo *servinfo) {
 
   if (p == NULL) {
     fprintf(stderr, "Failed to bind socket\n");
-    exit(1);
+    return -1;
   }
 
   return sockfd;
 }
 
-int proxy_server_setup(char *proxy_port) {
+int proxy_server_socket_setup(char *proxy_port) {
   struct addrinfo hints;
   struct addrinfo *servinfo;
   int sockfd;
@@ -68,20 +71,79 @@ int proxy_server_setup(char *proxy_port) {
 
   if (getaddrinfo(NULL, proxy_port, &hints, &servinfo) != 0) {
     perror("getaddrinfo error");
-    exit(1);
+    return -1;
   }
 
-  sockfd = find_binding(servinfo);
+  sockfd = find_server_socket_binding(servinfo);
 
   freeaddrinfo(servinfo); // free head of linked list
+
+  if (sockfd < 0) {
+    return -1;
+  }
 
   if (listen(sockfd, QUEUE_LENGTH) < 0) {
     perror("listen error");
     close(sockfd);
-    exit(1);
+    return -1;
   }
 
   return sockfd;
+}
+
+int find_client_socket_binding(struct addrinfo *servinfo) {
+  struct addrinfo *p;
+  int sockfd;
+  // iterate through linked list and find acceptable connection
+  for (p = servinfo; p != NULL; p = p->ai_next) {
+    // client's socket following server protocol
+    sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (sockfd < 0) {
+      perror("socket error");
+      continue;
+    }
+
+    // no need to bind our client to a specific port
+    // connect our client socket to the server
+    if (connect(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
+      perror("connect error");
+      close(sockfd);
+      continue;
+    }
+
+    break; // found a good one
+  }
+
+  if (p == NULL) {
+    fprintf(stderr, "Failed to connect socket\n");
+    return -1;
+  }
+
+  return sockfd;
+}
+
+int proxy_client_socket_setup(char *server_ip, char *server_port) {
+  struct addrinfo hints, *servinfo;
+    int sockfd;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(server_ip, server_port, &hints, &servinfo) != 0) {
+      perror("getaddrinfo error");
+      return -1;
+    }
+
+    sockfd = find_client_socket_binding(servinfo);
+
+    freeaddrinfo(servinfo);
+
+    if (sockfd < 0) {
+      return -1;
+    }
+
+    return sockfd;
 }
 
 void sigchld_handler(int s)
@@ -103,7 +165,7 @@ void sigchld_handler(int s)
  * Return 0 on success, non-zero on failure
 */
 int proxy(char *proxy_port) {
-  int sockfd = proxy_server_setup(proxy_port);
+  int sockfd = proxy_server_socket_setup(proxy_port);
   struct sigaction sa;
 
   sa.sa_handler = sigchld_handler; // reap all dead processes
@@ -111,7 +173,7 @@ int proxy(char *proxy_port) {
   sa.sa_flags = SA_RESTART;
   if (sigaction(SIGCHLD, &sa, NULL) == -1) {
       perror("sigaction");
-      exit(1);
+      return -1;
   }
 
   while (1) {
@@ -134,7 +196,7 @@ int proxy(char *proxy_port) {
       close(sockfd); // child doesn't need listener socket
       chat_with_client(clientfd);
       close(clientfd);
-      exit(0);
+      return -1;
     } else { // parent process
       close(clientfd); // parent doesn't need client socket
     }
@@ -175,12 +237,12 @@ int parse_request(char *buffer, int buffer_size) {
   return 0;
 }
 
-int receive_from_client(int clientfd, char *buffer, int buffer_size) {
+int receive_from_socket(int sockfd, char *buffer, int buffer_size) {
   ssize_t bytes_read, total_bytes_read;
   // ssize_t bytes_read, bytes_written, total_bytes_read;
   total_bytes_read = 0;
   while (
-    (bytes_read = recv(clientfd, buffer + total_bytes_read, 
+    (bytes_read = recv(sockfd, buffer + total_bytes_read, 
       RECV_BUFFER_SIZE - total_bytes_read, 0)) > 0 || 
     (bytes_read == -1 && errno == EINTR) // keep receiving on system interrupt
     ) {
@@ -198,9 +260,25 @@ int receive_from_client(int clientfd, char *buffer, int buffer_size) {
   return total_bytes_read;
 }
 
+int send_to_socket(int sockfd, char *buffer, int buffer_size) {
+  int total_bytes_sent, bytes_sent;
+  total_bytes_sent = 0;
+  while (total_bytes_sent < buffer_size) {
+    bytes_sent = send(sockfd, buffer + total_bytes_sent, 
+                    buffer_size - total_bytes_sent, 0);
+    total_bytes_sent += bytes_sent;
+    if (bytes_sent < 0 && errno != EINTR) {
+      perror("send error");
+      close(sockfd);
+      return -1;
+    }
+  }
+  return 0;
+}
+
 int chat_with_client(int clientfd) {
-  char buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
-  ssize_t total_bytes_read = receive_from_client(clientfd, buffer, RECV_BUFFER_SIZE);
+  char client_buffer[RECV_BUFFER_SIZE]; // HTTP request is now limited to 2048 bytes
+  ssize_t total_bytes_read = receive_from_socket(clientfd, client_buffer, RECV_BUFFER_SIZE);
   if (total_bytes_read < 0) {
     return -1;
   }
@@ -208,11 +286,59 @@ int chat_with_client(int clientfd) {
   // write(STDOUT_FILENO, "TOTAL\n", 6);
   // write(STDOUT_FILENO, buffer, total_bytes_read);
 
-  if (parse_request(buffer, total_bytes_read) < 0) {
+  // if (parse_request(buffer, total_bytes_read) < 0) {
+  //   return -1;
+  // };
+
+  printf("Here 1\n");
+
+  struct ParsedRequest *req = ParsedRequest_create();
+  if (ParsedRequest_parse(req, client_buffer, total_bytes_read) < 0) {
+    printf("parse failed\n");
     return -1;
-  };
+  }
+  
+  if (!req->port) {
+    req->port = "80";
+  }
 
+  // printf("Here 2\n");
+  // printf("Method:%s\n", req->method);
+  // printf("Host:%s\n", req->host);
+  // printf("Port:%s\n", req->port);
+  // printf("Path:%s\n", req->path);
 
+  int serverfd = proxy_client_socket_setup(req->host, req->port);
+  if (serverfd < 0) {
+    printf("socket setup failed\n");
+    return -1;
+  }
+
+  printf("Here 3\n");
+
+  if (send_to_socket(serverfd, client_buffer, total_bytes_read) < 0) {
+    printf("server send failed\n");
+    return -1;
+  }
+
+  printf("Here 4\n");
+
+  char server_buffer[RECV_BUFFER_SIZE];
+  total_bytes_read = receive_from_socket(serverfd, server_buffer, RECV_BUFFER_SIZE);
+  if (total_bytes_read < 0) {
+    return -1;
+  }
+  
+  write(STDOUT_FILENO, server_buffer, total_bytes_read);
+  if (send_to_socket(clientfd, server_buffer, total_bytes_read) < 0) {
+    printf("client send failed\n");
+    return -1;
+  }
+
+  printf("Here 5\n");
+
+  ParsedRequest_destroy(req);
+  close(serverfd);
   return 0;
 }
 

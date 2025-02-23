@@ -19,7 +19,8 @@ int find_server_socket_binding(struct addrinfo *servinfo);
 int find_client_socket_binding(struct addrinfo *servinfo);
 int proxy_server_socket_setup(char *proxy_port);
 int proxy_client_socket_setup(char *server_ip, char *server_port);
-int parse_request(char *buffer, int buffer_size);
+int parse_request(char *buffer, int buffer_size, int req_len, struct ParsedRequest **reqp);
+int send_to_socket(int sockfd, char *buffer, int buffer_size);
 int receive_from_socket(int sockfd, char *buffer, int buffer_size);
 
 
@@ -214,31 +215,49 @@ int proxy(char *proxy_port) {
 
 }
 
-int parse_request(char *buffer, int buffer_size) {
-  struct ParsedRequest *req = ParsedRequest_create();
-  if (ParsedRequest_parse(req, buffer, buffer_size) < 0) {
+int parse_request(char *buffer, int buffer_size, int req_len, struct ParsedRequest **reqp) {
+  *reqp = ParsedRequest_create();
+  if (*reqp == NULL) {
+    printf("request create failed\n");
+    return -1;
+  }
+
+  if (ParsedRequest_parse(*reqp, buffer, req_len) < 0) {
     printf("parse failed\n");
+    ParsedRequest_destroy(*reqp);
     return -1;
   }
 
-  printf("Method:%s\n", req->method);
-  printf("Host:%s\n", req->host);
+  if (!(*reqp)->port) {
+    (*reqp)->port = "80";
+  }
 
-  int rlen = ParsedRequest_totalLen(req);
-  char *b = (char *)malloc(rlen+1);
-  if (ParsedRequest_unparse(req, b, rlen) < 0) {
-    printf("unparse failed\n");
+  // TODO: Format into error codes
+  if (strcmp((*reqp)->method, "GET") != 0) {
+    printf("method not GET\n");
+    ParsedRequest_destroy(*reqp);
     return -1;
   }
-  b[rlen]='\0';
 
-  struct ParsedHeader *r = ParsedHeader_get(req, "If-Modified-Since");
-  printf("Modified value: %s\n", r->value);
+  int len = snprintf(
+      buffer, buffer_size,
+      "GET %s HTTP/1.0\r\n"
+      "Host: %s\r\n"
+      "Connection: close\r\n"
+      "\r\n",
+      (*reqp)->path, 
+      (*reqp)->host
+  );
 
-  ParsedRequest_destroy(req);
-  free(b);
+  printf("%s", buffer);
 
-  return 0;
+  if (len < 0 || len >= buffer_size) {
+    printf("snprintf error\n");
+    ParsedRequest_destroy(*reqp);
+    return -1;
+  }
+
+  return len;
 }
 
 int receive_from_socket(int sockfd, char *buffer, int buffer_size) {
@@ -287,45 +306,26 @@ int chat_with_client(int clientfd) {
     return -1;
   }
 
-  // write(STDOUT_FILENO, "TOTAL\n", 6);
-  // write(STDOUT_FILENO, buffer, total_bytes_read);
+  struct ParsedRequest *req = NULL;
+  int req_len = parse_request(client_buffer, RECV_BUFFER_SIZE, total_bytes_read, &req); // formatted
 
-  // if (parse_request(buffer, total_bytes_read) < 0) {
-  //   return -1;
-  // };
-
-  printf("Here 1\n");
-
-  struct ParsedRequest *req = ParsedRequest_create();
-  if (ParsedRequest_parse(req, client_buffer, total_bytes_read) < 0) {
-    printf("parse failed\n");
+  if (req_len < 0) {
+    printf("request parse failed\n");
     return -1;
   }
-  
-  if (!req->port) {
-    req->port = "80";
-  }
-
-  // printf("Here 2\n");
-  // printf("Method:%s\n", req->method);
-  // printf("Host:%s\n", req->host);
-  // printf("Port:%s\n", req->port);
-  // printf("Path:%s\n", req->path);
 
   int serverfd = proxy_client_socket_setup(req->host, req->port);
   if (serverfd < 0) {
     printf("socket setup failed\n");
+    ParsedRequest_destroy(req);
     return -1;
   }
+  ParsedRequest_destroy(req);
 
-  printf("Here 3\n");
-
-  if (send_to_socket(serverfd, client_buffer, total_bytes_read) < 0) {
+  if (send_to_socket(serverfd, client_buffer, req_len) < 0) {
     printf("server send failed\n");
     return -1;
   }
-
-  printf("Here 4\n");
 
   char server_buffer[RECV_BUFFER_SIZE];
   total_bytes_read = receive_from_socket(serverfd, server_buffer, RECV_BUFFER_SIZE);
@@ -339,9 +339,6 @@ int chat_with_client(int clientfd) {
     return -1;
   }
 
-  printf("Here 5\n");
-
-  ParsedRequest_destroy(req);
   close(serverfd);
   return 0;
 }

@@ -70,7 +70,7 @@ int proxy_server_socket_setup(char *proxy_port) {
   hints.ai_flags = AI_PASSIVE;
 
   if (getaddrinfo(NULL, proxy_port, &hints, &servinfo) != 0) {
-    perror("getaddrinfo error");
+    printf("getaddrinfo error\n");
     return -1;
   }
 
@@ -166,6 +166,10 @@ void sigchld_handler(int s)
 */
 int proxy(char *proxy_port) {
   int sockfd = proxy_server_socket_setup(proxy_port);
+  if (sockfd < 0) {
+    return -1;
+  }
+
   struct sigaction sa;
 
   sa.sa_handler = sigchld_handler; // reap all dead processes

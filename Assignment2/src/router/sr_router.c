@@ -78,7 +78,19 @@ void sr_handlepacket(struct sr_instance* sr,
 
   printf("*** -> Received packet of length %d \n",len);
 
-  /* fill in code here */
+  struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)packet;
+
+  if (ethertype(packet) == ethertype_arp) {
+    printf("ARP packet\n");
+    // TODO: implement
+    sr_handle_arp_packet(sr, packet, len, interface);
+  } else if (ethertype(packet) == ethertype_ip) {
+    printf("IP packet\n");
+    sr_handle_ip_packet(sr, packet, len, interface);
+  } else {
+    printf("Unknown packet\n");
+  }
+
 
 } /* end sr_handlepacket */
 
@@ -89,3 +101,87 @@ them in sr_router.h.
 If you use any of these methods in sr_arpcache.c, you must also forward declare
 them in sr_arpcache.h to avoid circular dependencies. Since sr_router
 already imports sr_arpcache.h, sr_arpcache cannot import sr_router.h -KM */
+
+void sr_handle_ip_packet(struct sr_instance* sr,
+        uint8_t * packet/* lent */,
+        unsigned int len,
+        char* interface/* lent */) {
+
+  // verify minimum length of frame
+  if (len < sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr)) {
+    return;
+  }
+
+  // verify checksum of IP header
+  if (cksum(packet + sizeof(struct sr_ethernet_hdr), sizeof(struct sr_ip_hdr)) != 0) {
+    return;
+  }
+
+  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+
+  if (ip_hdr->ip_p == ip_protocol_icmp) {
+    printf("ICMP packet\n");
+    sr_handle_icmp_packet(sr, packet, len, interface);
+  } else {
+    printf("Unknown IP packet\n");
+  }
+}
+
+void sr_handle_icmp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+  struct sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+
+  // Create response packet
+  uint8_t *new_packet = (uint8_t *)malloc(len);
+  memcpy(new_packet, packet, len);
+
+  if (icmp_hdr->icmp_type == 8) {
+    printf("ICMP echo request\n");
+    sr_handle_icmp_echo_request(sr, packet, new_packet, len, interface);
+  } else {
+    printf("Unknown ICMP packet\n");
+    free(new_packet);  // Free if not handled
+    return;
+  }
+
+  // Send packet and free memory
+  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_src);
+  if (rt) {
+    struct sr_if *out_iface = sr_get_interface(sr, rt->interface);
+    sr_send_packet(sr, new_packet, len, out_iface->name);
+  }
+
+  free(new_packet);
+}
+
+void sr_handle_icmp_echo_request(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  uint8_t* new_packet/* owned by caller */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+  // Modify the headers for echo reply
+  struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)packet;
+  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+
+  struct sr_ethernet_hdr *new_ethernet_hdr = (struct sr_ethernet_hdr *)new_packet;
+  struct sr_ip_hdr *new_ip_hdr = (struct sr_ip_hdr *)(new_packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_icmp_hdr *new_icmp_hdr = (struct sr_icmp_hdr *)(new_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+
+  // Set up echo reply
+  new_ethernet_hdr->ether_type = ethernet_hdr->ether_type;
+
+  new_ip_hdr->ip_ttl = 64; // reset TTL
+  new_ip_hdr->ip_sum = cksum(new_ip_hdr, sizeof(struct sr_ip_hdr));
+
+  new_icmp_hdr->icmp_type = 0;  // Echo Reply
+  new_icmp_hdr->icmp_sum = 0;
+  new_icmp_hdr->icmp_sum = cksum(new_icmp_hdr, len - sizeof(struct sr_ethernet_hdr) - sizeof(struct sr_ip_hdr));
+
+  new_ip_hdr->ip_dst = ip_hdr->ip_src;
+  new_ip_hdr->ip_src = ip_hdr->ip_dst;
+}

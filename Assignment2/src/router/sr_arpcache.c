@@ -17,11 +17,41 @@
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) {
-    /* fill in code here */
+    struct sr_arpreq* req = sr->cache.requests;
+    while (req) {
+        struct sr_arpreq* next = req->next;
+        handle_arpreq(sr, req);
+        req = next;
+    }
 }
 
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request) {
-    /* fill in code here */
+void handle_arpreq(struct sr_instance* sr, struct sr_arpreq* req) {
+    time_t now = time(NULL);
+    
+    // Check if it's time to send a new request
+    if (difftime(now, req->sent) > 1.0) {
+        if (req->times_sent >= 5) {
+            printf("ARP request timed out after 5 attempts\n");
+            // Send ICMP host unreachable to all waiting packets
+            struct sr_packet* pkt = req->packets;
+            while (pkt) {
+                sr_send_icmp_host_unreachable(sr, pkt->buf, pkt->len, pkt->iface);
+                pkt = pkt->next;
+            }
+            
+            // Destroy the ARP request
+            sr_arpreq_destroy(&(sr->cache), req);
+            
+        } else {
+            // Send (or resend) ARP request
+            struct sr_if* iface = sr_get_interface(sr, req->packets->iface);
+            sr_send_arp_request(sr, req->ip, iface);
+            
+            // Update request state
+            req->sent = now;
+            req->times_sent++;
+        }
+    }
 }
 
 /* You should not need to touch the rest of this code. */

@@ -82,7 +82,6 @@
  
    if (ethertype(packet) == ethertype_arp) {
      printf("ARP packet\n");
-     // TODO: implement
      sr_handle_arp_packet(sr, packet, len, interface);
    } else if (ethertype(packet) == ethertype_ip) {
      printf("IP packet\n");
@@ -240,7 +239,7 @@ void sr_forward_packet(struct sr_instance* sr,
   struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_dst);
   if (!rt) {
     printf("Destination net unreachable\n");
-    sr_send_destination_net_unreachable(sr, packet, len, interface);
+    sr_send_icmp_net_unreachable(sr, packet, len, interface);
     return;
   }
 
@@ -319,4 +318,71 @@ void sr_send_arp_reply(struct sr_instance* sr, uint8_t* req_packet, unsigned int
   
   sr_send_packet(sr, reply_packet, len, interface);
   free(reply_packet);
+}
+
+void sr_handle_arp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+  // Check packet length
+  if (len < sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)) {
+    printf("ARP packet too short, ignoring\n");
+    return;
+  }
+
+  struct sr_arp_hdr* arp_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_if* iface = sr_get_interface(sr, interface);
+
+  // Make sure we have the interface
+  if (!iface) {
+    printf("Interface not found\n");
+    return;
+  }
+
+  // Handle ARP request
+  if (ntohs(arp_hdr->ar_op) == arp_op_request) {
+    // Is this request asking for our IP?
+    if (arp_hdr->ar_tip == iface->ip) {
+        printf("ARP request for our IP, sending reply\n");
+        sr_send_arp_reply(sr, packet, len, interface);
+    } else {
+        printf("ARP request not for us, ignoring\n");
+    }
+  }
+  // Handle ARP reply
+  else if (ntohs(arp_hdr->ar_op) == arp_op_reply) {
+    // Is this reply for us?
+    if (arp_hdr->ar_tip == iface->ip) {
+        printf("ARP reply received for our request\n");
+        
+        // Cache the mapping
+        struct sr_arpreq* req = sr_arpcache_insert(&(sr->cache), 
+                                                arp_hdr->ar_sha, 
+                                                arp_hdr->ar_sip);
+        
+        if (req) {
+            // Send all packets waiting on this ARP request
+            struct sr_packet* pkt = req->packets;
+            while (pkt) {
+                struct sr_ethernet_hdr* eth_hdr = (struct sr_ethernet_hdr*)(pkt->buf);
+                struct sr_if* out_iface = sr_get_interface(sr, pkt->iface);
+                
+                // Update Ethernet header with resolved MAC
+                memcpy(eth_hdr->ether_dhost, arp_hdr->ar_sha, ETHER_ADDR_LEN);
+                memcpy(eth_hdr->ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+                
+                sr_send_packet(sr, pkt->buf, pkt->len, pkt->iface);
+                pkt = pkt->next;
+            }
+            
+            // Clean up the request
+            sr_arpreq_destroy(&(sr->cache), req);
+        }
+    } else {
+        printf("ARP reply not for us, ignoring\n");
+    }
+  } else {
+    printf("Unknown ARP operation\n");
+  }
 }

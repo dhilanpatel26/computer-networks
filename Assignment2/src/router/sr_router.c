@@ -263,3 +263,60 @@ void sr_forward_packet(struct sr_instance* sr,
     handle_arpreq(sr, req);
   }
 }
+
+void sr_send_arp_request(struct sr_instance* sr, uint32_t tip, struct sr_if* iface) {
+  // Create and send ARP request packet
+  unsigned int len = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr);
+  uint8_t* arp_packet = (uint8_t*)malloc(len);
+  
+  // Fill in Ethernet header
+  struct sr_ethernet_hdr* eth_hdr = (struct sr_ethernet_hdr*)arp_packet;
+  memset(eth_hdr->ether_dhost, 0xff, ETHER_ADDR_LEN); // Broadcast
+  memcpy(eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+  eth_hdr->ether_type = htons(ethertype_arp);
+  
+  // Fill in ARP header
+  struct sr_arp_hdr* arp_hdr = (struct sr_arp_hdr*)(arp_packet + sizeof(struct sr_ethernet_hdr));
+  arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+  arp_hdr->ar_pro = htons(ethertype_ip);
+  arp_hdr->ar_hln = ETHER_ADDR_LEN;
+  arp_hdr->ar_pln = 4; // IPv4 length
+  arp_hdr->ar_op = htons(arp_op_request);
+  memcpy(arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN);
+  arp_hdr->ar_sip = iface->ip;
+  memset(arp_hdr->ar_tha, 0, ETHER_ADDR_LEN); // Target MAC unknown
+  arp_hdr->ar_tip = tip; // Target IP
+  
+  sr_send_packet(sr, arp_packet, len, iface->name);
+  free(arp_packet);
+}
+
+void sr_send_arp_reply(struct sr_instance* sr, uint8_t* req_packet, unsigned int len, char* interface) {
+  struct sr_ethernet_hdr* req_eth_hdr = (struct sr_ethernet_hdr*)req_packet;
+  struct sr_arp_hdr* req_arp_hdr = (struct sr_arp_hdr*)(req_packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_if* iface = sr_get_interface(sr, interface);
+  
+  // Create ARP reply packet
+  uint8_t* reply_packet = (uint8_t*)malloc(len);
+  
+  // Fill in Ethernet header
+  struct sr_ethernet_hdr* reply_eth_hdr = (struct sr_ethernet_hdr*)reply_packet;
+  memcpy(reply_eth_hdr->ether_dhost, req_eth_hdr->ether_shost, ETHER_ADDR_LEN);
+  memcpy(reply_eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+  reply_eth_hdr->ether_type = htons(ethertype_arp);
+  
+  // Fill in ARP header
+  struct sr_arp_hdr* reply_arp_hdr = (struct sr_arp_hdr*)(reply_packet + sizeof(struct sr_ethernet_hdr));
+  reply_arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+  reply_arp_hdr->ar_pro = htons(ethertype_ip);
+  reply_arp_hdr->ar_hln = ETHER_ADDR_LEN;
+  reply_arp_hdr->ar_pln = 4; // IPv4 length
+  reply_arp_hdr->ar_op = htons(arp_op_reply);
+  memcpy(reply_arp_hdr->ar_sha, iface->addr, ETHER_ADDR_LEN); // My MAC
+  reply_arp_hdr->ar_sip = iface->ip; // My IP
+  memcpy(reply_arp_hdr->ar_tha, req_arp_hdr->ar_sha, ETHER_ADDR_LEN); // Target MAC
+  reply_arp_hdr->ar_tip = req_arp_hdr->ar_sip; // Target IP
+  
+  sr_send_packet(sr, reply_packet, len, interface);
+  free(reply_packet);
+}

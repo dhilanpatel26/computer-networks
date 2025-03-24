@@ -66,6 +66,53 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 
 /* Add additional helper method declarations here! */
+void sr_handle_arp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_handle_ip_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_handle_icmp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_handle_icmp_echo_request(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  uint8_t* new_packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_port_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  char* interface/* lent */);
+void sr_forward_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_host_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_time_exceeded(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_net_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_arp_request(struct sr_instance* sr,
+  uint32_t ip,
+  struct sr_if* iface);
+void sr_send_arp_reply(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_handle_arp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
 
 /* -- sr_if.c -- */
 struct sr_if *sr_get_interface(struct sr_instance*, const char* );

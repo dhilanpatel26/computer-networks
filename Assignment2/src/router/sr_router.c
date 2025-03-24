@@ -217,3 +217,49 @@
   new_icmp_hdr->icmp_sum = cksum(new_icmp_hdr, len - sizeof(struct sr_ethernet_hdr) - sizeof(struct sr_ip_hdr));
   
 }
+
+void sr_forward_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+  struct sr_ethernet_hdr *eth_hdr = (struct sr_ethernet_hdr *)packet;
+  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+
+  ip_hdr->ip_ttl--;
+
+  if (ip_hdr->ip_ttl <= 0) {
+    printf("TTL expired, sending ICMP time exceeded\n");
+    sr_send_icmp_time_exceeded(sr, packet, len, interface);
+    return;
+  }
+
+  ip_hdr->ip_sum = 0;
+  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
+
+  struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_dst);
+  if (!rt) {
+    printf("Destination net unreachable\n");
+    sr_send_destination_net_unreachable(sr, packet, len, interface);
+    return;
+  }
+
+  struct sr_if *out_iface = sr_get_interface(sr, rt->interface);
+  if (!out_iface) {
+    printf("Interface not found\n");
+    return;
+  }
+
+  struct sr_arpentry* arp_entry = sr_arpcache_lookup(&(sr->cache), rt->gw.s_addr);
+
+  if (arp_entry) {
+    memcpy(eth_hdr->ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+    memcpy(eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+    sr_send_packet(sr, packet, len, out_iface->name);
+    free(arp_entry);
+  } else {
+    printf("ARP cache miss, queueing packet and sending ARP request\n");
+    struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), rt->gw.s_addr, packet, len, out_iface->name);
+    handle_arpreq(sr, req);
+  }
+}

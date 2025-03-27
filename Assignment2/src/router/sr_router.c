@@ -148,36 +148,63 @@
     sr_forward_packet(sr, packet, len, interface);
   }
 }
- 
- void sr_handle_icmp_packet(struct sr_instance* sr,
-   uint8_t* packet/* lent */,
-   unsigned int len,
-   char* interface/* lent */) {
- 
-  struct sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
 
-  // Create response packet
-  uint8_t *new_packet = (uint8_t *)malloc(len);
-  memcpy(new_packet, packet, len);
+void sr_handle_icmp_packet(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
 
-  if (icmp_hdr->icmp_type == 8) {
-    printf("ICMP echo request\n");
-    sr_handle_icmp_echo_request(sr, packet, new_packet, len, interface);
-  } else {
-    printf("Unknown ICMP packet\n");
-    free(new_packet);  // Free if not handled
-    return;
-  }
+ struct sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
 
-  // Send packet and free memory
-  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
-  struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_src);
-  if (rt) {
-    struct sr_if *out_iface = sr_get_interface(sr, rt->interface);
-    sr_send_packet(sr, new_packet, len, out_iface->name);
-  }
+ // Create response packet
+ uint8_t *new_packet = (uint8_t *)malloc(len);
+ memcpy(new_packet, packet, len);
 
-  free(new_packet);
+ if (icmp_hdr->icmp_type == 8) {
+   printf("ICMP echo request\n");
+   // Create the echo reply packet
+   sr_handle_icmp_echo_request(sr, packet, new_packet, len, interface);
+   
+   // Get the IP headers for routing
+   struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+   struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_src);
+   
+   if (!rt) {
+     printf("No route to host for ICMP echo reply\n");
+     free(new_packet);
+     return;
+   }
+   
+   struct sr_if *out_iface = sr_get_interface(sr, rt->interface);
+   if (!out_iface) {
+     printf("Interface not found\n");
+     free(new_packet);
+     return;
+   }
+   
+   struct sr_arpentry* arp_entry = sr_arpcache_lookup(&(sr->cache), rt->gw.s_addr);
+   
+   if (arp_entry) {
+     // We have the MAC - update Ethernet header and send
+     struct sr_ethernet_hdr *eth_hdr = (struct sr_ethernet_hdr *)new_packet;
+     memcpy(eth_hdr->ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+     memcpy(eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+     
+     sr_send_packet(sr, new_packet, len, out_iface->name);
+     free(arp_entry);
+     free(new_packet);
+   } else {
+     // Need to ARP for the MAC - queue packet
+     printf("ARP cache miss for ICMP reply, queueing packet\n");
+     struct sr_arpreq *req = sr_arpcache_queuereq(
+         &(sr->cache), rt->gw.s_addr, new_packet, len, out_iface->name);
+     handle_arpreq(sr, req);
+     // Note: don't free new_packet here - it's now owned by the queue
+   }
+ } else {
+   printf("Unknown ICMP packet\n");
+   free(new_packet);
+ }
 }
  
  void sr_handle_icmp_echo_request(struct sr_instance* sr,

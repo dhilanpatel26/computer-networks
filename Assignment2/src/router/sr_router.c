@@ -77,9 +77,7 @@
    assert(interface);
  
    printf("*** -> Received packet of length %d \n",len);
- 
-   struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *)packet;
- 
+  
    if (ethertype(packet) == ethertype_arp) {
      printf("ARP packet\n");
      sr_handle_arp_packet(sr, packet, len, interface);
@@ -223,9 +221,9 @@ void sr_handle_icmp_packet(struct sr_instance* sr,
 
   // Set up echo reply
   new_ethernet_hdr->ether_type = ethernet_hdr->ether_type;
-  memcpy(new_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
-  memcpy(new_ethernet_hdr->ether_shost, ethernet_hdr->ether_dhost, ETHER_ADDR_LEN);
 
+  new_ip_hdr->ip_hl = ip_hdr->ip_hl;
+  new_ip_hdr->ip_v = ip_hdr->ip_v;
   new_ip_hdr->ip_tos = ip_hdr->ip_tos;
   new_ip_hdr->ip_len = ip_hdr->ip_len;
   new_ip_hdr->ip_id = ip_hdr->ip_id;
@@ -412,4 +410,54 @@ void sr_handle_arp_packet(struct sr_instance* sr,
   } else {
     printf("Unknown ARP operation\n");
   }
+}
+
+struct sr_rt *sr_get_longest_prefix_match(struct sr_instance *sr, uint32_t ip) {
+  struct sr_rt *rt_walker = sr->routing_table;
+  struct sr_rt *longest_match = NULL;
+  uint32_t longest_mask = 0; // mask counter
+
+  while (rt_walker) {
+    uint32_t mask = rt_walker->mask.s_addr;
+    uint32_t dest = rt_walker->dest.s_addr;
+    
+    // Check if route matches
+    if ((ip & mask) == (dest & mask)) {
+      // Check if this is a longer match
+      if (mask >= longest_mask) {
+        longest_match = rt_walker;
+        longest_mask = mask;
+      }
+    }
+    rt_walker = rt_walker->next;
+  }
+
+  return longest_match;
+}
+
+void sr_send_icmp_port_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  char* interface/* lent */) {
+
+}
+
+void sr_send_icmp_time_exceeded(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+}
+
+void sr_send_icmp_host_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
+}
+
+void sr_send_icmp_net_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */) {
+
 }

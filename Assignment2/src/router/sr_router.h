@@ -12,6 +12,7 @@
 
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
+#include "sr_rt.h"
 
 /* we dont like this debug , but what to do for varargs ? */
 #ifdef _DEBUG_
@@ -122,5 +123,23 @@ void sr_add_interface(struct sr_instance* , const char* );
 void sr_set_ether_ip(struct sr_instance* , uint32_t );
 void sr_set_ether_addr(struct sr_instance* , const unsigned char* );
 void sr_print_if_list(struct sr_instance* );
+
+// TODO
+struct sr_rt *sr_get_longest_prefix_match(struct sr_instance *sr, uint32_t ip);
+void sr_send_icmp_port_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  char* interface/* lent */);
+void sr_send_icmp_time_exceeded(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_host_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
+void sr_send_icmp_net_unreachable(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  unsigned int len,
+  char* interface/* lent */);
 
 #endif /* SR_ROUTER_H */

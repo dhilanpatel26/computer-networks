@@ -85,3 +85,26 @@ I implemented two key functions:
 3. **Checksum Calculation**: Ensuring proper checksum calculation/verification for both IP and ICMP headers. It was very important to first set all other header and payload fields (including the checksum to 0), and then calculate and set the checksum.
 
 5. **Interface Selection**: Determining the correct interface for sending packets, especially for ICMP error responses. For example, I did not initally realize the that the interface to send echo replies out of is not necessarily the interface that the echo request came in from.
+
+## Special Notes
+During setup (Mac M1 Silicon), I had trouble running the solution script `sr_solution_macm` multiple times in sequence because the kill script was not fully terminating all relevant processes. I resolved this by modifying `kill_all.sh` to the following:
+
+```bash
+#!/bin/bash
+
+pkill -9 sr_solution
+pkill -9 sr_solution_macm
+pkill -9 sr
+pgrep pox | xargs kill -9
+pgrep mininet | xargs kill -9
+ps aux | grep topo | awk '{print $2}' | sudo xargs kill -9
+ps aux | grep webserver | awk '{print $2}' | sudo xargs kill -9
+
+sudo pkill -f pox.py
+sudo pkill -f mininet
+sudo mn -c
+sudo killall controller
+sudo killall srhandler
+```
+
+Regardless, my router code functions the same as the solution and meets all requirements.

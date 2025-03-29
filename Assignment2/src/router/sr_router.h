@@ -84,22 +84,7 @@ void sr_handle_icmp_echo_request(struct sr_instance* sr,
   uint8_t* new_packet/* lent */,
   unsigned int len,
   char* interface/* lent */);
-void sr_send_icmp_port_unreachable(struct sr_instance* sr,
-  uint8_t* packet/* lent */,
-  char* interface/* lent */);
 void sr_forward_packet(struct sr_instance* sr,
-  uint8_t* packet/* lent */,
-  unsigned int len,
-  char* interface/* lent */);
-void sr_send_icmp_host_unreachable(struct sr_instance* sr,
-  uint8_t* packet/* lent */,
-  unsigned int len,
-  char* interface/* lent */);
-void sr_send_icmp_time_exceeded(struct sr_instance* sr,
-  uint8_t* packet/* lent */,
-  unsigned int len,
-  char* interface/* lent */);
-void sr_send_icmp_net_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
   unsigned int len,
   char* interface/* lent */);
@@ -131,15 +116,17 @@ void sr_send_icmp_port_unreachable(struct sr_instance* sr,
   char* interface/* lent */);
 void sr_send_icmp_time_exceeded(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */);
 void sr_send_icmp_host_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */);
 void sr_send_icmp_net_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */);
+void sr_send_error(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  char* interface/* lent */,
+  uint8_t type,
+  uint8_t code);
 
 #endif /* SR_ROUTER_H */

@@ -76,7 +76,7 @@
    assert(packet);
    assert(interface);
  
-   printf("*** -> Received packet of length %d \n",len);
+  //  printf("*** -> Received packet of length %d \n",len);
   
    if (ethertype(packet) == ethertype_arp) {
      printf("ARP packet\n");
@@ -85,7 +85,7 @@
      printf("IP packet\n");
      sr_handle_ip_packet(sr, packet, len, interface);
    } else {
-     printf("Unknown packet\n");
+    //  printf("Unknown packet\n");
    }
  
  
@@ -254,7 +254,7 @@ void sr_forward_packet(struct sr_instance* sr,
 
   if (ip_hdr->ip_ttl <= 0) {
     printf("TTL expired, sending ICMP time exceeded\n");
-    sr_send_icmp_time_exceeded(sr, packet, len, interface);
+    sr_send_icmp_time_exceeded(sr, packet, interface);
     return;
   }
 
@@ -264,7 +264,7 @@ void sr_forward_packet(struct sr_instance* sr,
   struct sr_rt *rt = sr_get_longest_prefix_match(sr, ip_hdr->ip_dst);
   if (!rt) {
     printf("Destination net unreachable\n");
-    sr_send_icmp_net_unreachable(sr, packet, len, interface);
+    sr_send_icmp_net_unreachable(sr, packet, interface);
     return;
   }
 
@@ -438,26 +438,112 @@ struct sr_rt *sr_get_longest_prefix_match(struct sr_instance *sr, uint32_t ip) {
 void sr_send_icmp_port_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
   char* interface/* lent */) {
-
+    sr_send_error(sr, packet, interface, 3, 3);
 }
 
 void sr_send_icmp_time_exceeded(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */) {
-
+    sr_send_error(sr, packet, interface, 11, 0);
 }
 
 void sr_send_icmp_host_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */) {
-
+    sr_send_error(sr, packet, interface, 3, 1);
 }
 
 void sr_send_icmp_net_unreachable(struct sr_instance* sr,
   uint8_t* packet/* lent */,
-  unsigned int len,
   char* interface/* lent */) {
+    sr_send_error(sr, packet, interface, 3, 0);
+}
 
+void sr_send_error(struct sr_instance* sr,
+  uint8_t* packet/* lent */,
+  char* interface/* lent */,
+  uint8_t type,
+  uint8_t code
+) {
+  
+  // 1. Extract headers from original packet
+  struct sr_ip_hdr *orig_ip_hdr = (struct sr_ip_hdr *)(packet + sizeof(struct sr_ethernet_hdr));
+  
+  // 2. Create new packet for ICMP error message
+  unsigned int icmp_len = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + 
+                        sizeof(struct sr_icmp_t3_hdr);
+  uint8_t *icmp_packet = (uint8_t *)malloc(icmp_len);
+  
+  // 3. Set up headers for ICMP error packet
+  struct sr_ethernet_hdr *eth_hdr = (struct sr_ethernet_hdr *)icmp_packet;
+  struct sr_ip_hdr *ip_hdr = (struct sr_ip_hdr *)(icmp_packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_icmp_t3_hdr *icmp_hdr = (struct sr_icmp_t3_hdr *)(icmp_packet + sizeof(struct sr_ethernet_hdr) + 
+                                  sizeof(struct sr_ip_hdr));
+  
+  // 4. Find the interface to send the ICMP error from
+  struct sr_if* iface = sr_get_interface(sr, interface);
+  
+  // 5. Find route back to the original sender
+  struct sr_rt *rt = sr_get_longest_prefix_match(sr, orig_ip_hdr->ip_src);
+  if (!rt) {
+    printf("No route to host for ICMP error message\n");
+    free(icmp_packet);
+    return;
+  }
+  struct sr_if *out_iface = sr_get_interface(sr, rt->interface);
+  if (!out_iface) {
+    printf("Interface not found\n");
+    free(icmp_packet);
+    return;
+  }
+  
+  // 6. Fill IP header
+  ip_hdr->ip_hl = 5;
+  ip_hdr->ip_v = 4;
+  ip_hdr->ip_tos = 0;
+  ip_hdr->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
+  ip_hdr->ip_id = htons(0);
+  ip_hdr->ip_off = htons(IP_DF); // Don't fragment
+  ip_hdr->ip_ttl = 64;
+  ip_hdr->ip_p = ip_protocol_icmp;
+  ip_hdr->ip_src = iface->ip;  // Source is our interface
+  ip_hdr->ip_dst = orig_ip_hdr->ip_src;  // Destination is original sender
+  ip_hdr->ip_sum = 0;
+  ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
+  
+  // 7. Fill ICMP header - Port Unreachable
+  icmp_hdr->icmp_type = type;
+  icmp_hdr->icmp_code = code;
+  icmp_hdr->unused = 0;
+  icmp_hdr->next_mtu = 0;
+  
+  // 8. Copy data from original IP header + first 8 bytes of payload
+  memcpy(icmp_hdr->data, orig_ip_hdr, ICMP_DATA_SIZE);
+  
+  // 9. Calculate ICMP checksum
+  icmp_hdr->icmp_sum = 0;
+  icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
+  
+  // 10. ARP lookup and send packet or queue for ARP resolution
+  struct sr_arpentry *arp_entry = sr_arpcache_lookup(&sr->cache, rt->gw.s_addr);
+  if (arp_entry) {
+    // Update Ethernet addresses if we have them
+    memcpy(eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+    memcpy(eth_hdr->ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+    eth_hdr->ether_type = htons(ethertype_ip);
+    
+    // Send ICMP error packet
+    sr_send_packet(sr, icmp_packet, icmp_len, out_iface->name);
+    free(arp_entry);
+    free(icmp_packet);
+  } else {
+    // Queue for ARP resolution
+    eth_hdr->ether_type = htons(ethertype_ip);
+    memcpy(eth_hdr->ether_shost, out_iface->addr, ETHER_ADDR_LEN);
+    
+    struct sr_arpreq *req = sr_arpcache_queuereq(&sr->cache, rt->gw.s_addr, 
+                                               icmp_packet, icmp_len, out_iface->name);
+    handle_arpreq(sr, req);
+    // Note: don't free icmp_packet here - it's now owned by the queue
+  }
 }

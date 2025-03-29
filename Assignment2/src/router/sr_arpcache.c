@@ -35,7 +35,7 @@ void handle_arpreq(struct sr_instance* sr, struct sr_arpreq* req) {
             // Send ICMP host unreachable to all waiting packets
             struct sr_packet* pkt = req->packets;
             while (pkt) {
-                sr_send_icmp_host_unreachable(sr, pkt->buf, pkt->len, pkt->iface);
+                sr_send_icmp_host_unreachable(sr, pkt->buf, pkt->iface);
                 pkt = pkt->next;
             }
             

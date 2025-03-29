@@ -79,10 +79,10 @@
   //  printf("*** -> Received packet of length %d \n",len);
   
    if (ethertype(packet) == ethertype_arp) {
-     printf("ARP packet\n");
+    //  printf("ARP packet\n");
      sr_handle_arp_packet(sr, packet, len, interface);
    } else if (ethertype(packet) == ethertype_ip) {
-     printf("IP packet\n");
+    //  printf("IP packet\n");
      sr_handle_ip_packet(sr, packet, len, interface);
    } else {
     //  printf("Unknown packet\n");

@@ -52,6 +52,8 @@ typedef struct
     
     uint16_t send_window;         /* Peer's receive window size */
     uint16_t recv_window;         /* Our receive window size */
+
+    uint16_t total_received;      /* Total bytes received but not yet processed */
 } context_t;
 
 static void generate_initial_seq_num(context_t *ctx);
@@ -86,6 +88,7 @@ void transport_init(mysocket_t sd, bool_t is_active)
     /* Initialize windows */
     ctx->recv_window = RECEIVER_WINDOW_SIZE;
     ctx->send_window = RECEIVER_WINDOW_SIZE; /* Default, will be updated */
+    ctx->total_received = 0;
     
     /* Store context for future API calls */
     stcp_set_context(sd, ctx);
@@ -385,14 +388,27 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                 dprintf("Received %d bytes of data, seq=%u\n", 
                         (int)data_len, recv_seq);
                 
+                /* Update buffer tracking */
+                ctx->total_received += data_len;
+                
+                /* Update receive window */
+                ctx->recv_window = RECEIVER_WINDOW_SIZE - ctx->total_received;
+                
                 /* Update ack number */
                 ctx->ack_num += data_len;
                 
-                /* Send ACK */
+                /* Send ACK with updated window */
                 send_packet(sd, ctx, NULL, 0, TH_ACK);
                 
                 /* Pass data to application */
                 stcp_app_send(sd, buf + TCP_DATA_START(buf), data_len);
+                
+                /* Since stcp_app_send is void and we assume all data is processed successfully,
+                we subtract the same amount we sent to the application */
+                ctx->total_received -= data_len;
+                
+                /* Update receive window again */
+                ctx->recv_window = RECEIVER_WINDOW_SIZE - ctx->total_received;
             } else if (data_len > 0) {
                 /* Out of order data or duplicate, send ACK with current expected seq */
                 dprintf("Received out-of-order data, expected=%u, got=%u\n", 

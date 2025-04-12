@@ -45,22 +45,16 @@ typedef struct
     tcp_seq sequence_num;         /* Current sequence number for sending */
     tcp_seq ack_num;              /* Next sequence number expected from peer */
     
-    tcp_seq fin_seq;              /* Sequence number of FIN packet */
     bool_t fin_sent;              /* Whether we've sent a FIN */
     bool_t fin_received;          /* Whether we've received a FIN */
     bool_t fin_acked;             /* Whether our FIN has been ACKed */
     
-    uint16_t send_window;         /* Peer's receive window size */
-    uint16_t recv_window;         /* Our receive window size */
-
-    uint16_t total_received;      /* Total bytes received but not yet processed */
-
-    uint16_t recv_window_size;
-    uint16_t recv_buffer_used;
-    tcp_seq next_seq_expected;
-    uint16_t peer_window_size;
-    tcp_seq last_ack_received;
-    tcp_seq last_byte_sent;
+    uint16_t recv_window_size;    /* Our receive window size */
+    uint16_t recv_buffer_used;    /* Currently used receive buffer space */
+    tcp_seq next_seq_expected;    /* Next sequence number expected */
+    uint16_t peer_window_size;    /* Peer's receive window size */
+    tcp_seq last_ack_received;    /* Last ACK received from peer */
+    tcp_seq last_byte_sent;       /* Last byte sent to peer */
 
 } context_t;
 
@@ -94,10 +88,6 @@ void transport_init(mysocket_t sd, bool_t is_active)
     ctx->sequence_num = ctx->initial_sequence_num;
     
     /* Initialize windows */
-    ctx->recv_window = RECEIVER_WINDOW_SIZE;
-    ctx->send_window = RECEIVER_WINDOW_SIZE; /* Default, will be updated */
-    ctx->total_received = 0;
-
     ctx->recv_window_size = RECEIVER_WINDOW_SIZE;
     ctx->recv_buffer_used = 0;
     ctx->peer_window_size = RECEIVER_WINDOW_SIZE;
@@ -137,10 +127,9 @@ void transport_init(mysocket_t sd, bool_t is_active)
                 ctx->ack_num = ntohl(header->th_seq) + 1;
                 
                 /* Update receive window based on peer's advertised window */
-                ctx->send_window = ntohs(header->th_win);
+                ctx->peer_window_size = ntohs(header->th_win);
 
                 ctx->next_seq_expected = ntohl(header->th_seq) + 1;
-                ctx->peer_window_size = ntohs(header->th_win);
                 
                 /* Send ACK */
                 dprintf("Active end: Sending ACK, seq=%u, ack=%u\n", 
@@ -210,8 +199,6 @@ void transport_init(mysocket_t sd, bool_t is_active)
                                 ntohl(header->th_seq), ntohl(header->th_ack));
                         
                         /* Update send window based on peer's advertised window */
-                        ctx->send_window = ntohs(header->th_win);
-
                         ctx->peer_window_size = ntohs(header->th_win);
                         
                         /* Connection established */
@@ -357,7 +344,7 @@ static void control_loop(mysocket_t sd, context_t *ctx)
             tcp_seq recv_seq = ntohl(header->th_seq);
             
             /* Update peer's advertised window */
-            ctx->send_window = ntohs(header->th_win);
+            ctx->peer_window_size = ntohs(header->th_win);
             
             /* Handle FIN flag */
             if (header->th_flags & TH_FIN) {
@@ -419,8 +406,6 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                         (int)data_len, recv_seq);
                 
                 /* Update buffer tracking */
-                ctx->total_received += data_len;
-
                 ctx->recv_buffer_used += data_len;
                 if (recv_seq == ctx->next_seq_expected) {
                     ctx->next_seq_expected = recv_seq + data_len;
@@ -428,21 +413,11 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                     ctx->recv_buffer_used -= data_len;
                 }
                 
-                /* Update receive window */
-                ctx->recv_window = RECEIVER_WINDOW_SIZE - ctx->total_received;
-                
                 /* Update ack number */
                 ctx->ack_num += data_len;
                 
                 /* Send ACK with updated window */
                 send_packet(sd, ctx, NULL, 0, TH_ACK);
-                
-                /* Since stcp_app_send is void and we assume all data is processed successfully,
-                we subtract the same amount we sent to the application */
-                ctx->total_received -= data_len;
-                
-                /* Update receive window again */
-                ctx->recv_window = RECEIVER_WINDOW_SIZE - ctx->total_received;
             } else if (data_len > 0) {
                 /* Out of order data or duplicate, send ACK with current expected seq */
                 dprintf("Received out-of-order data, expected=%u, got=%u\n", 
@@ -460,7 +435,6 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                 
                 /* Send FIN */
                 send_packet(sd, ctx, NULL, 0, TH_FIN | TH_ACK);
-                ctx->fin_seq = ctx->sequence_num;
                 ctx->sequence_num++;  /* FIN consumes one byte in sequence space */
                 
                 /* Update state based on current state */

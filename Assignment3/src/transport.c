@@ -54,6 +54,14 @@ typedef struct
     uint16_t recv_window;         /* Our receive window size */
 
     uint16_t total_received;      /* Total bytes received but not yet processed */
+
+    uint16_t recv_window_size;
+    uint16_t recv_buffer_used;
+    tcp_seq next_seq_expected;
+    uint16_t peer_window_size;
+    tcp_seq last_ack_received;
+    tcp_seq last_byte_sent;
+
 } context_t;
 
 static void generate_initial_seq_num(context_t *ctx);
@@ -89,6 +97,12 @@ void transport_init(mysocket_t sd, bool_t is_active)
     ctx->recv_window = RECEIVER_WINDOW_SIZE;
     ctx->send_window = RECEIVER_WINDOW_SIZE; /* Default, will be updated */
     ctx->total_received = 0;
+
+    ctx->recv_window_size = RECEIVER_WINDOW_SIZE;
+    ctx->recv_buffer_used = 0;
+    ctx->peer_window_size = RECEIVER_WINDOW_SIZE;
+    ctx->last_ack_received = ctx->initial_sequence_num;
+    ctx->last_byte_sent = ctx->initial_sequence_num;
     
     /* Store context for future API calls */
     stcp_set_context(sd, ctx);
@@ -124,6 +138,9 @@ void transport_init(mysocket_t sd, bool_t is_active)
                 
                 /* Update receive window based on peer's advertised window */
                 ctx->send_window = ntohs(header->th_win);
+
+                ctx->next_seq_expected = ntohl(header->th_seq) + 1;
+                ctx->peer_window_size = ntohs(header->th_win);
                 
                 /* Send ACK */
                 dprintf("Active end: Sending ACK, seq=%u, ack=%u\n", 
@@ -163,6 +180,9 @@ void transport_init(mysocket_t sd, bool_t is_active)
                 /* Initialize ACK number to peer's sequence number + 1 */
                 ctx->ack_num = ntohl(header->th_seq) + 1;
                 ctx->connection_state = CSTATE_SYN_RCVD;
+
+                ctx->next_seq_expected = ntohl(header->th_seq) + 1;
+                ctx->peer_window_size = ntohs(header->th_win);
                 
                 /* Send SYN-ACK */
                 dprintf("Passive end: Sending SYN-ACK, seq=%u, ack=%u\n", 
@@ -191,6 +211,8 @@ void transport_init(mysocket_t sd, bool_t is_active)
                         
                         /* Update send window based on peer's advertised window */
                         ctx->send_window = ntohs(header->th_win);
+
+                        ctx->peer_window_size = ntohs(header->th_win);
                         
                         /* Connection established */
                         ctx->connection_state = CSTATE_ESTABLISHED;
@@ -253,13 +275,15 @@ static ssize_t send_packet(mysocket_t sd, context_t *ctx, const void *data,
     /* Prepare the packet */
     header = (STCPHeader *)packet;
     memset(header, 0, sizeof(STCPHeader));
+
+    uint16_t available_window = ctx->recv_window_size - ctx->recv_buffer_used;
     
     /* Fill in the header fields */
     header->th_seq = htonl(ctx->sequence_num);
     header->th_ack = htonl(ctx->ack_num);
     header->th_off = 5; /* Header size in 32-bit words (20 bytes) */
     header->th_flags = flags;
-    header->th_win = htons(ctx->recv_window);
+    header->th_win = htons(available_window);
     
     /* Copy data if any */
     if (data && data_len > 0) {
@@ -294,17 +318,23 @@ static void control_loop(mysocket_t sd, context_t *ctx)
         /* Handle application data */
         if (event & APP_DATA)
         {
-            /* Get data from application */
-            bytes_read = stcp_app_recv(sd, app_buf, STCP_MSS);
-            if (bytes_read > 0) {
-                dprintf("Sending %d bytes of data, seq=%u\n", 
-                        (int)bytes_read, ctx->sequence_num);
-                
-                /* Send data to peer */
-                send_packet(sd, ctx, app_buf, bytes_read, TH_ACK);
-                
-                /* Update sequence number */
-                ctx->sequence_num += bytes_read;
+            size_t max_to_send = ctx->peer_window_size - (ctx->last_byte_sent - ctx->last_ack_received);
+            if (max_to_send > STCP_MSS) {
+                max_to_send = STCP_MSS;
+            }
+
+            if (max_to_send > 0) {
+                size_t bytes_read = stcp_app_recv(sd, app_buf, max_to_send);
+                if (bytes_read > 0) {
+                    dprintf("Sending %zu bytes of data, seq=%u\n", 
+                            bytes_read, ctx->sequence_num);
+                    
+                    /* Send data to peer */
+                    send_packet(sd, ctx, app_buf, bytes_read, TH_ACK);
+                    
+                    /* Update sequence number */
+                    ctx->sequence_num += bytes_read;
+                }
             }
         }
         
@@ -390,6 +420,13 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                 
                 /* Update buffer tracking */
                 ctx->total_received += data_len;
+
+                ctx->recv_buffer_used += data_len;
+                if (recv_seq == ctx->next_seq_expected) {
+                    ctx->next_seq_expected = recv_seq + data_len;
+                    stcp_app_send(sd, buf + TCP_DATA_START(buf), data_len);
+                    ctx->recv_buffer_used -= data_len;
+                }
                 
                 /* Update receive window */
                 ctx->recv_window = RECEIVER_WINDOW_SIZE - ctx->total_received;
@@ -399,9 +436,6 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                 
                 /* Send ACK with updated window */
                 send_packet(sd, ctx, NULL, 0, TH_ACK);
-                
-                /* Pass data to application */
-                stcp_app_send(sd, buf + TCP_DATA_START(buf), data_len);
                 
                 /* Since stcp_app_send is void and we assume all data is processed successfully,
                 we subtract the same amount we sent to the application */

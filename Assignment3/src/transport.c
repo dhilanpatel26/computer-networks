@@ -16,6 +16,7 @@
 #include "mysock.h"
 #include "stcp_api.h"
 #include "transport.h"
+#include <arpa/inet.h>
 
 enum { 
     CSTATE_CLOSED,
@@ -100,7 +101,7 @@ void transport_init(mysocket_t sd, bool_t is_active)
         unsigned int event = stcp_wait_for_event(sd, NETWORK_DATA, NULL);
         if (event & NETWORK_DATA) {
             recv_len = stcp_network_recv(sd, buf, sizeof(buf));
-            if (recv_len < sizeof(STCPHeader)) {
+            if (recv_len < (ssize_t)sizeof(STCPHeader)) {
                 errno = ECONNREFUSED;
                 stcp_unblock_application(sd);
                 return;
@@ -143,7 +144,7 @@ void transport_init(mysocket_t sd, bool_t is_active)
         unsigned int event = stcp_wait_for_event(sd, NETWORK_DATA, NULL);
         if (event & NETWORK_DATA) {
             recv_len = stcp_network_recv(sd, buf, sizeof(buf));
-            if (recv_len < sizeof(STCPHeader)) {
+            if (recv_len < (ssize_t)sizeof(STCPHeader)) {
                 errno = ECONNREFUSED;
                 stcp_unblock_application(sd);
                 return;
@@ -170,7 +171,7 @@ void transport_init(mysocket_t sd, bool_t is_active)
                 event = stcp_wait_for_event(sd, NETWORK_DATA, NULL);
                 if (event & NETWORK_DATA) {
                     recv_len = stcp_network_recv(sd, buf, sizeof(buf));
-                    if (recv_len < sizeof(STCPHeader)) {
+                    if (recv_len < (ssize_t)sizeof(STCPHeader)) {
                         errno = ECONNREFUSED;
                         stcp_unblock_application(sd);
                         return;

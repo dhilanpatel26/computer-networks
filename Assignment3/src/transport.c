@@ -20,14 +20,12 @@
 
 enum { 
     CSTATE_CLOSED,
-    CSTATE_LISTEN,
     CSTATE_SYN_SENT,
     CSTATE_SYN_RCVD,
     CSTATE_ESTABLISHED,
     CSTATE_FIN_WAIT_1,
     CSTATE_FIN_WAIT_2,
     CSTATE_CLOSING,
-    CSTATE_TIME_WAIT,
     CSTATE_CLOSE_WAIT,
     CSTATE_LAST_ACK
 };
@@ -365,8 +363,7 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                     /* Simultaneous close */
                     ctx->connection_state = CSTATE_CLOSING;
                 } else if (ctx->connection_state == CSTATE_FIN_WAIT_2) {
-                    ctx->connection_state = CSTATE_TIME_WAIT;
-                    /* In real TCP, we would start a timeout here. 
+                    /* In real TCP, we would enter TIME_WAIT state and start a timeout.
                        For STCP, we can close immediately */
                     ctx->done = TRUE;
                 }
@@ -385,9 +382,7 @@ static void control_loop(mysocket_t sd, context_t *ctx)
                           recv_ack == ctx->sequence_num) {
                     /* Our FIN has been ACKed in simultaneous close */
                     ctx->fin_acked = TRUE;
-                    ctx->connection_state = CSTATE_TIME_WAIT;
-                    /* In real TCP, we would start a timeout here.
-                       For STCP, we can close immediately */
+                    /* Skip TIME_WAIT state and close immediately */
                     ctx->done = TRUE;
                 } else if (ctx->connection_state == CSTATE_LAST_ACK &&
                           recv_ack == ctx->sequence_num) {

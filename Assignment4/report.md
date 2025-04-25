@@ -55,3 +55,53 @@ I imagine that most of the work people do at a busy public cafe during the after
 2. Assuming the cafe has a NAT, we would likely see most of the top 10 source IPs for traffic to be under the same /16 prefix.
 3. HTTPS to dominate the destination port traffic in a much more significant way than it does currently, because typical browser traffic is through HTTPS.
 4. I would still expect the inbound/outbound traffic split to lean more inbound-heavy, but it will likely be more balanced if cafe users are uploading. We might also see some more internal traffic (src and dst within the /16 network) if the cafe is streaming to a smart-speaker music system or using a printer.
+
+## Question 2.1
+Top 10 AS numbers by frequency:
+1. AS3356: 95483 occurrences
+2. AS3257: 75208 occurrences
+3. AS1299: 64771 occurrences
+4. AS6939: 56413 occurrences
+5. AS2914: 54290 occurrences
+6. AS37100: 45399 occurrences
+7. AS174: 45319 occurrences
+8. AS49788: 41468 occurrences
+9. AS3130: 38180 occurrences
+10. AS3303: 36486 occurrences
+
+Percentage of top 10 AS numbers in all paths: 78.79%
+
+ASNumber:       3356
+ASName:         LEVEL3
+ASHandle:       AS3356
+RegDate:        2000-03-10
+Updated:        2018-02-20    
+Ref:            https://rdap.arin.net/registry/autnum/3356
+
+OrgName:        Level 3 Parent, LLC
+OrgId:          LPL-141
+Address:        100 CenturyLink Drive
+City:           Monroe
+StateProv:      LA
+PostalCode:     71203
+Country:        US
+RegDate:        2018-02-06
+Updated:        2024-06-17
+
+???
+
+## Question 2.2
+![BGP Path Length CDF](2.2/Figure__.png)
+
+This tells us that most paths across the internet are short (between 3 and 6 hops). We can infer that the internet's AS-level topology is relatively flat since the destination can be reached so efficiently. There are rare occurances of greater than 10 AS hops. 
+
+## Question 2.3
+Average updates per minute: 10391.19
+
+![Updates per Second](2.3/Figure_1.png)
+
+## Question 2.4
+
+![CDF of Message From Top AS Percentage](2.4/Figure_2.png)
+
+The steep rise at the beginning of the CDF graph indicates that a small top percentage of ASes are responsible for a large portion of the BGP updates. The curve flattens out as it approaches 100%, meaning that the remaining ASes send updates much less frequently. Those select few highly active ASes are likely less stable (perhaps due to frequent route changes or network reliability issues), while the remaining majority that infrequently update are part of a more stable network.

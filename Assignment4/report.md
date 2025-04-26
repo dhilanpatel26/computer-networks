@@ -71,24 +71,18 @@ Top 10 AS numbers by frequency:
 
 Percentage of top 10 AS numbers in all paths: 78.79%
 
-ASNumber:       3356
-ASName:         LEVEL3
-ASHandle:       AS3356
-RegDate:        2000-03-10
-Updated:        2018-02-20    
-Ref:            https://rdap.arin.net/registry/autnum/3356
+AS3356: LEVEL3 - United States
+AS3257: GTT-BACKBONE GTT - United States
+AS1299: TWELVE99 Arelion, fka Telia Carrier - Sweden
+AS6939: HURRICANE - United States
+AS2914: NTT-DATA-2914 - United States
+AS174: COGENT-174 - United States
+AS37100: SEACOM-AS - Mauritius
+AS49788: NEXTHOP - Norway
+AS3130: RGNET-SEA RGnet Seattle Westin - Estonia
+AS3303: SWISSCOM Swisscom Switzerland Ltd - Switzerland
 
-OrgName:        Level 3 Parent, LLC
-OrgId:          LPL-141
-Address:        100 CenturyLink Drive
-City:           Monroe
-StateProv:      LA
-PostalCode:     71203
-Country:        US
-RegDate:        2018-02-06
-Updated:        2024-06-17
-
-???
+It might be problematic for an AS to be commonly found in these routes because it means that the AS is responsible for handling a very significant portion of the internet traffic. Since these ASes are critical for internet operation, a failure across any one of them could have a large effect on the rest of the internet. Many other ASes would need to re-converge to a new stable path, assuming one exists, which may result in some internet downtime as the BGP protocol runs.
 
 ## Question 2.2
 ![BGP Path Length CDF](2.2/Figure__.png)

@@ -1,3 +1,5 @@
+# Computer Networks Assignment 4 - Dhilan Patel
+
 ## README
 There are two scripts for this assignemnt.
 1. netflow.py (Part 1)
@@ -50,7 +52,7 @@ python bgp.py
 9. 64.125: 1852 flows
 10. 184.105: 1775 flows
 
-Percentage of flows from top 10 source IPs: 44.80%
+These top 10 source IPs account for 44.80% of all flows.
 
 ### Top 10 Source IPs by bytes:
 1. 212.83: 928311 bytes
@@ -64,29 +66,27 @@ Percentage of flows from top 10 source IPs: 44.80%
 9. 5.8: 126940 bytes
 10. 163.53: 120920 bytes
 
-Percentage of bytes from top 10 source IPs: 37.41%
+These top 10 source IPs account for 37.41% of all bytes.
 
 ## Question 1.3
-Port 443: HTTPS
-Percentage of flows from port 443: 1.10%
-Percentage of flows to port 443: 4.40%
+Port 443 is associated with the HTTPS service. 1.10% of flows are from port 443, and 4.40% of flows are to port 443.
 
 ## Question 1.4
-Percentage of total bytes sent by 128.112: 4.20%
-Percentage of total bytes received by 128.112: 95.95%
-Percentage of bytes both sent and received by 128.112: 0.84%
+The percentage of total bytes sent by 128.112 is 4.20%. \
+The percentage of total bytes received by 128.112 is 95.95%. \
+The percentage of bytes both sent and received by 128.112 is 0.84%.
 
 We see an extreme imbalance in byte-counts on this router's network, specifically almost all bytes received being destined to 128.112.0.0/16, but very few being sent from it, and almost no fully internal bytes. This router is acting as a net sink of traffic, perhaps for one of the research universities in Internet2, where end hosts primarily download or request content from out-of-network servers and rarely upload.
 
 ## Question 1.5
 I imagine that most of the work people do at a busy public cafe during the afternoon consists of web-based downloads and uploads, as well as video and music streaming. I would expect the following changes to the collected data:
-1. The flow CDF shifting to the right, as video and music streaming requires larger multimedia flows and larger/more packets.
+1. The flow CDF would shift to the right, as video and music streaming requires larger multimedia flows and larger/more packets.
 2. Assuming the cafe has a NAT, we would likely see most of the top 10 source IPs for traffic to be under the same /16 prefix.
-3. HTTPS to dominate the destination port traffic in a much more significant way than it does currently, because typical browser traffic is through HTTPS.
+3. HTTPS would dominate the destination port traffic in a much more significant way than it does currently, because typical browser traffic is through HTTPS.
 4. I would still expect the inbound/outbound traffic split to lean more inbound-heavy, but it will likely be more balanced if cafe users are uploading. We might also see some more internal traffic (src and dst within the /16 network) if the cafe is streaming to a smart-speaker music system or using a printer.
 
 ## Question 2.1
-Top 10 AS numbers by frequency:
+These are the top 10 AS numbers by frequency:
 1. AS3356: 95483 occurrences
 2. AS3257: 75208 occurrences
 3. AS1299: 64771 occurrences
@@ -98,18 +98,19 @@ Top 10 AS numbers by frequency:
 9. AS3130: 38180 occurrences
 10. AS3303: 36486 occurrences
 
-Percentage of top 10 AS numbers in all paths: 78.79%
+The top 10 ASes are found in 78.79% of all paths.
 
-AS3356: LEVEL3 - United States
-AS3257: GTT-BACKBONE GTT - United States
-AS1299: TWELVE99 Arelion, fka Telia Carrier - Sweden
-AS6939: HURRICANE - United States
-AS2914: NTT-DATA-2914 - United States
-AS174: COGENT-174 - United States
-AS37100: SEACOM-AS - Mauritius
-AS49788: NEXTHOP - Norway
-AS3130: RGNET-SEA RGnet Seattle Westin - Estonia
-AS3303: SWISSCOM Swisscom Switzerland Ltd - Switzerland
+These are the names and country of the top 10 ASes:
+1. AS3356: LEVEL3 - United States
+2. AS3257: GTT-BACKBONE GTT - United States
+3. AS1299: TWELVE99 Arelion, fka Telia Carrier - Sweden
+4. AS6939: HURRICANE - United States
+5. AS2914: NTT-DATA-2914 - United States
+6. AS174: COGENT-174 - United States
+7. AS37100: SEACOM-AS - Mauritius
+8. AS49788: NEXTHOP - Norway
+9. AS3130: RGNET-SEA RGnet Seattle Westin - Estonia
+10. AS3303: SWISSCOM Swisscom Switzerland Ltd - Switzerland
 
 It might be problematic for an AS to be commonly found in these routes because it means that the AS is responsible for handling a very significant portion of the internet traffic. Since these ASes are critical for internet operation, a failure across any one of them could have a large effect on the rest of the internet. Many other ASes would need to re-converge to a new stable path, assuming one exists, which may result in some internet downtime as the BGP protocol runs.
 
@@ -119,7 +120,7 @@ It might be problematic for an AS to be commonly found in these routes because i
 This tells us that most paths across the internet are short (between 3 and 6 hops). We can infer that the internet's AS-level topology is relatively flat since the destination can be reached so efficiently. There are rare occurances of greater than 10 AS hops. 
 
 ## Question 2.3
-Average updates per minute: 10391.19
+The average number of updates per minute is 10391.19.
 
 ![Updates per Second](2.3/Figure_1.png)
 

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Computer Networks Assignment 4 - Dhilan Patel</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="computer-networks-assignment-4---dhilan-patel">Computer Networks Assignment 4 - Dhilan Patel</h1>
+<h2 id="readme">README</h2>
+<p>There are two scripts for this assignemnt.</p>
+<ol>
+<li><a href="http://netflow.py">netflow.py</a> (Part 1)</li>
+<li><a href="http://bgp.py">bgp.py</a> (Part 2)</li>
+</ol>
+<p>Place these scripts in the same root folder as the csv files. This is already set up in the submission zipfile. The requirements and virtual environment are listed below. After installing Python, you can simply run <code>pip install numpy pandas matplotlib</code> through the command line to cover all dependencies.</p>
+<ol>
+<li>Python 3.13.1</li>
+</ol>
+<pre><code>contourpy==1.3.2
+cycler==0.12.1
+fonttools==4.57.0
+kiwisolver==1.4.8
+matplotlib==3.10.1
+numpy==2.2.5
+packaging==25.0
+pandas==2.2.3
+pillow==11.2.1
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+pytz==2025.2
+six==1.17.0
+tzdata==2025.2
+</code></pre>
+<p>Run the scripts with the following commands in the root submission directory.</p>
+<pre><code class="language-zsh">python netflow.py
+python bgp.py
+</code></pre>
+<h2 id="question-11">Question 1.1</h2>
+<p><img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/1.1/Figure__.png" alt="All flows CDF">
+<img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/1.1/Figure_1.png" alt="TCP flows CDF">
+<img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/1.1/Figure_2.png" alt="UDP flows CDF"></p>
+<h3 id="observations">Observations</h3>
+<ol>
+<li>We see a heavy-tailed distribution, where around 50% of all flows are under 300 B and 90% are under 1000 B, with only a few flows being larger than 10 kB. We can conclude that most flows are quite small.</li>
+<li>There are many more small-sized TCP flows than UDP flows, likely from the handshake and ACK packets without payloads in TCP.</li>
+</ol>
+<h2 id="question-12">Question 1.2</h2>
+<h3 id="top-10-source-ips-by-flows">Top 10 Source IPs by flows:</h3>
+<ol>
+<li>116.211: 17019 flows</li>
+<li>169.54: 9424 flows</li>
+<li>222.186: 5269 flows</li>
+<li>163.53: 2981 flows</li>
+<li>169.45: 2494 flows</li>
+<li>94.23: 2205 flows</li>
+<li>141.212: 2143 flows</li>
+<li>212.83: 2042 flows</li>
+<li>64.125: 1852 flows</li>
+<li>184.105: 1775 flows</li>
+</ol>
+<p>These top 10 source IPs account for 44.80% of all flows.</p>
+<h3 id="top-10-source-ips-by-bytes">Top 10 Source IPs by bytes:</h3>
+<ol>
+<li>212.83: 928311 bytes</li>
+<li>169.54: 867928 bytes</li>
+<li>116.211: 680922 bytes</li>
+<li>140.205: 510833 bytes</li>
+<li>128.112: 506604 bytes</li>
+<li>42.120: 326122 bytes</li>
+<li>169.45: 229448 bytes</li>
+<li>222.186: 211068 bytes</li>
+<li>5.8: 126940 bytes</li>
+<li>163.53: 120920 bytes</li>
+</ol>
+<p>These top 10 source IPs account for 37.41% of all bytes.</p>
+<h2 id="question-13">Question 1.3</h2>
+<p>Port 443 is associated with the HTTPS service. 1.10% of flows are from port 443, and 4.40% of flows are to port 443.</p>
+<h2 id="question-14">Question 1.4</h2>
+<p>The percentage of total bytes sent by 128.112 is 4.20%. <br>
+The percentage of total bytes received by 128.112 is 95.95%. <br>
+The percentage of bytes both sent and received by 128.112 is 0.84%.</p>
+<p>We see an extreme imbalance in byte-counts on this router's network, specifically almost all bytes received being destined to 128.112.0.0/16, but very few being sent from it, and almost no fully internal bytes. This router is acting as a net sink of traffic, perhaps for one of the research universities in Internet2, where end hosts primarily download or request content from out-of-network servers and rarely upload.</p>
+<h2 id="question-15">Question 1.5</h2>
+<p>I imagine that most of the work people do at a busy public cafe during the afternoon consists of web-based downloads and uploads, as well as video and music streaming. I would expect the following changes to the collected data:</p>
+<ol>
+<li>The flow CDF would shift to the right, as video and music streaming requires larger multimedia flows and larger/more packets.</li>
+<li>Assuming the cafe has a NAT, we would likely see most of the top 10 source IPs for traffic to be under the same /16 prefix.</li>
+<li>HTTPS would dominate the destination port traffic in a much more significant way than it does currently, because typical browser traffic is through HTTPS.</li>
+<li>I would still expect the inbound/outbound traffic split to lean more inbound-heavy, but it will likely be more balanced if cafe users are uploading. We might also see some more internal traffic (src and dst within the /16 network) if the cafe is streaming to a smart-speaker music system or using a printer.</li>
+</ol>
+<h2 id="question-21">Question 2.1</h2>
+<p>These are the top 10 AS numbers by frequency:</p>
+<ol>
+<li>AS3356: 95483 occurrences</li>
+<li>AS3257: 75208 occurrences</li>
+<li>AS1299: 64771 occurrences</li>
+<li>AS6939: 56413 occurrences</li>
+<li>AS2914: 54290 occurrences</li>
+<li>AS37100: 45399 occurrences</li>
+<li>AS174: 45319 occurrences</li>
+<li>AS49788: 41468 occurrences</li>
+<li>AS3130: 38180 occurrences</li>
+<li>AS3303: 36486 occurrences</li>
+</ol>
+<p>The top 10 ASes are found in 78.79% of all paths.</p>
+<p>These are the names and country of the top 10 ASes:</p>
+<ol>
+<li>AS3356: LEVEL3 - United States</li>
+<li>AS3257: GTT-BACKBONE GTT - United States</li>
+<li>AS1299: TWELVE99 Arelion, fka Telia Carrier - Sweden</li>
+<li>AS6939: HURRICANE - United States</li>
+<li>AS2914: NTT-DATA-2914 - United States</li>
+<li>AS174: COGENT-174 - United States</li>
+<li>AS37100: SEACOM-AS - Mauritius</li>
+<li>AS49788: NEXTHOP - Norway</li>
+<li>AS3130: RGNET-SEA RGnet Seattle Westin - Estonia</li>
+<li>AS3303: SWISSCOM Swisscom Switzerland Ltd - Switzerland</li>
+</ol>
+<p>It might be problematic for an AS to be commonly found in these routes because it means that the AS is responsible for handling a very significant portion of the internet traffic. Since these ASes are critical for internet operation, a failure across any one of them could have a large effect on the rest of the internet. Many other ASes would need to re-converge to a new stable path, assuming one exists, which may result in some internet downtime as the BGP protocol runs.</p>
+<h2 id="question-22">Question 2.2</h2>
+<p><img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/2.2/Figure__.png" alt="BGP Path Length CDF"></p>
+<p>This tells us that most paths across the internet are short (between 3 and 6 hops). We can infer that the internet's AS-level topology is relatively flat since the destination can be reached so efficiently. There are rare occurances of greater than 10 AS hops.</p>
+<h2 id="question-23">Question 2.3</h2>
+<p>The average number of updates per minute is 10391.19.</p>
+<p><img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/2.3/Figure_1.png" alt="Updates per Second"></p>
+<h2 id="question-24">Question 2.4</h2>
+<p><img src="file:////Users/dhilanpatel/Desktop/SP25/Computer_Networks/computer-networks/Assignment4/2.4/Figure_2.png" alt="CDF of Message From Top AS Percentage"></p>
+<p>The steep rise at the beginning of the CDF graph indicates that a small top percentage of ASes are responsible for a large portion of the BGP updates. The curve flattens out as it approaches 100%, meaning that the remaining ASes send updates much less frequently. Those select few highly active ASes are likely less stable (perhaps due to frequent route changes or network reliability issues), while the remaining majority that infrequently update are part of a more stable network.</p>
+
+            
+            
+        </body>
+        </html>

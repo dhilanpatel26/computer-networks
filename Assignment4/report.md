@@ -1,3 +1,32 @@
+## README
+There are two scripts for this assignemnt.
+1. netflow.py (Part 1)
+2. bgp.py (Part 2)
+
+Place these scripts in the same root folder as the csv files. This is already set up in the submission zipfile. The requirements and virtual environment are listed below. After installing Python, you can simply run `pip install numpy pandas matplotlib` through the command line to cover all dependencies.
+1. Python 3.13.1
+``` 
+contourpy==1.3.2
+cycler==0.12.1
+fonttools==4.57.0
+kiwisolver==1.4.8
+matplotlib==3.10.1
+numpy==2.2.5
+packaging==25.0
+pandas==2.2.3
+pillow==11.2.1
+pyparsing==3.2.3
+python-dateutil==2.9.0.post0
+pytz==2025.2
+six==1.17.0
+tzdata==2025.2
+```
+Run the scripts with the following commands in the root submission directory.
+```zsh
+python netflow.py
+python bgp.py
+```
+
 ## Question 1.1
 
 ![All flows CDF](1.1/Figure__.png)

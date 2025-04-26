@@ -34,7 +34,7 @@ def path_length_cdf(csv_path):
     plt.title('CDF of BGP Path Lengths')
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
 def updates_per_minute(csv_path):
     df = pd.read_csv(csv_path)
@@ -65,7 +65,7 @@ def updates_per_minute(csv_path):
     plt.title('BGP updates')
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
 def top_percentage_cdf(csv_path1, csv_path2):
     df1 = pd.read_csv(csv_path1)
@@ -90,17 +90,19 @@ def top_percentage_cdf(csv_path1, csv_path2):
     plt.title('CDF of Updates from Top ASes')
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
 
 def main():
-    # freq_as('bgp_route.csv')
+    freq_as('bgp_route.csv')
 
-    # path_length_cdf('bgp_route.csv')
+    path_length_cdf('bgp_route.csv')
 
-    # updates_per_minute('bgp_update.csv')
+    updates_per_minute('bgp_update.csv')
 
     top_percentage_cdf('bgp_route.csv', 'bgp_update.csv')
+
+    plt.show()
 
 
 if __name__ == "__main__":

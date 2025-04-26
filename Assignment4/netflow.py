@@ -43,7 +43,7 @@ def plot_bytes_cdf(csv_path):
     plt.grid(True)
     plt.tight_layout()
 
-    plt.show()
+    # plt.show()
 
 def top_ips(csv_path):
     df = pd.read_csv(csv_path)
@@ -107,13 +107,15 @@ def router_bytes(csv_path):
 
 def main():
     csv_path = 'netflow.csv'
-    # plot_bytes_cdf(csv_path)
+    plot_bytes_cdf(csv_path)
 
-    # top_ips(csv_path)
+    top_ips(csv_path)
 
-    # port_analysis(csv_path, port=443)
+    port_analysis(csv_path, port=443)
 
-    # router_bytes(csv_path)
+    router_bytes(csv_path)
+
+    plt.show()
 
 if __name__ == "__main__":
     main()
